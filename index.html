@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Walk Tracking</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
+
+  <style>
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+    .controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      padding: 10px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 999;
+    }
+    button {
+      font-size: 16px;
+      padding: 8px 14px;
+      margin: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="controls">
+  <button onclick="startTracking()">Start</button>
+  <button onclick="stopTracking()">Stop</button>
+</div>
+
+<script>
+let map;
+let path = [];
+let polyline;
+let watchId;
+let totalDistance = 0;
+
+function initMap(lat = 13.7563, lng = 100.5018) {
+  map = new google.maps.Map(document.getElementById("map"), {
+    zoom: 17,
+    center: { lat, lng },
+  });
+
+  polyline = new google.maps.Polyline({
+    path: path,
+    geodesic: true,
+    strokeColor: "#FF0000",
+    strokeOpacity: 1.0,
+    strokeWeight: 4,
+  });
+
+  polyline.setMap(map);
+}
+
+function startTracking() {
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+
+    const newPoint = { lat, lng };
+
+    if (path.length > 0) {
+      totalDistance += getDistance(path[path.length - 1], newPoint);
+      console.log("Distance km:", totalDistance.toFixed(3));
+    }
+
+    path.push(newPoint);
+    polyline.setPath(path);
+    map.setCenter(newPoint);
+
+  }, err => alert("GPS error: " + err.message), {
+    enableHighAccuracy: true,
+    maximumAge: 0,
+    timeout: 5000
+  });
+}
+
+function stopTracking() {
+  navigator.geolocation.clearWatch(watchId);
+  alert("Total distance: " + totalDistance.toFixed(3) + " km");
+}
+
+function getDistance(p1, p2) {
+  const R = 6371;
+  const dLat = (p2.lat - p1.lat) * Math.PI / 180;
+  const dLng = (p2.lng - p1.lng) * Math.PI / 180;
+
+  const a =
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(p1.lat * Math.PI/180) *
+    Math.cos(p2.lat * Math.PI/180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+initMap();
+</script>
+
+</body>
+</html>
