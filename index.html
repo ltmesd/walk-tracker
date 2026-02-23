@@ -55,10 +55,10 @@
 
 <script>
 let map;
-let watchId;
+let watchId = null;
 let path = [];
 let polyline;
-let startTime;
+let startTime = null;
 let distance = 0;
 let lastPos = null;
 
@@ -86,8 +86,8 @@ window.onload = initMap;
 ========================= */
 function calcDistance(lat1, lon1, lat2, lon2) {
   const R = 6371000;
-  const dLat = (lat2-lat1) * Math.PI/180;
-  const dLon = (lon2-lon1) * Math.PI/180;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
 
   const a =
     Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -95,7 +95,7 @@ function calcDistance(lat1, lon1, lat2, lon2) {
     Math.cos(lat2*Math.PI/180) *
     Math.sin(dLon/2) * Math.sin(dLon/2);
 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
@@ -108,67 +108,91 @@ function startTracking() {
     return;
   }
 
+  console.log("▶️ Start tracking");
+
   path = [];
   distance = 0;
   lastPos = null;
   startTime = Date.now();
   polyline.setPath([]);
 
-  watchId = navigator.geolocation.watchPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lng = pos.coords.longitude;
+  watchId = navigator.geolocation.watchPosition(
+    pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
 
-    const current = { lat, lng };
-    path.push(current);
+      const current = { lat, lng };
+      path.push(current);
 
-    polyline.setPath(path);
-    map.panTo(current);
+      polyline.setPath(path);
+      map.panTo(current);
 
-    if (lastPos) {
-      distance += calcDistance(
-        lastPos.lat,
-        lastPos.lng,
-        lat,
-        lng
-      );
+      if (lastPos) {
+        distance += calcDistance(
+          lastPos.lat,
+          lastPos.lng,
+          lat,
+          lng
+        );
+      }
+
+      lastPos = current;
+    },
+    err => {
+      console.error("Location error:", err);
+      alert("Location error");
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000
     }
-
-    lastPos = current;
-
-  }, err => {
-    alert("Location error");
-  }, {
-    enableHighAccuracy: true,
-    maximumAge: 0,
-    timeout: 5000
-  });
+  );
 }
 
 /* =========================
    SEND TO GLIDE
 ========================= */
 async function sendToGlide(data) {
-  await fetch(https://go.glideapps.com/api/container/plugin/webhook-trigger/gtXLubgIliPUE21a4iLs/e44fa000-08a7-4138-aea5-3681099044e1, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  });
+  try {
+    const res = await fetch(
+      "https://go.glideapps.com/api/container/plugin/webhook-trigger/gtXLubgIliPUE21a4iLs/e44fa000-08a7-4138-aea5-3681099044e1",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      }
+    );
+
+    const text = await res.text();
+    console.log("✅ Glide response:", text);
+
+  } catch (err) {
+    console.error("❌ Glide error:", err);
+  }
 }
 
 /* =========================
    STOP TRACKING
 ========================= */
 async function stopTracking() {
-  if (watchId) {
+  console.log("⏹ Stop tracking");
+
+  if (watchId !== null) {
     navigator.geolocation.clearWatch(watchId);
+  }
+
+  if (!startTime) {
+    alert("You haven't started tracking");
+    return;
   }
 
   const durationMin = (Date.now() - startTime) / 60000;
   const co2 = (distance / 1000) * 0.21;
 
-  await sendToGlide({
+  const payload = {
     user_email: "test@test.com",
     distance_m: Math.round(distance),
     duration_min: Number(durationMin.toFixed(2)),
@@ -176,7 +200,11 @@ async function stopTracking() {
     started_at: new Date(startTime).toISOString(),
     ended_at: new Date().toISOString(),
     gps_path: JSON.stringify(path)
-  });
+  };
+
+  console.log("📦 Sending to Glide:", payload);
+
+  await sendToGlide(payload);
 
   alert("Saved to Glide ✅");
 }
