@@ -5,7 +5,7 @@
   <title>Walk Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- ✅ Google Maps (ใส่ key แล้ว) -->
+  <!-- Google Maps -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
 
   <style>
@@ -63,7 +63,6 @@
     let pathCoords = [];
     let polyline;
 
-    // ===== INIT MAP =====
     function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
         center: { lat: 13.7563, lng: 100.5018 },
@@ -80,19 +79,11 @@
 
     window.onload = initMap;
 
-    // ===== START TRACKING =====
     function startTracking() {
-      console.log("Start tracking");
-
       totalDistance = 0;
       pathCoords = [];
       lastPosition = null;
       startTime = new Date();
-
-      if (!navigator.geolocation) {
-        alert("Geolocation not supported");
-        return;
-      }
 
       watchId = navigator.geolocation.watchPosition(
         (pos) => {
@@ -109,15 +100,12 @@
 
           lastPosition = current;
         },
-        (err) => console.error("GPS error:", err),
+        (err) => console.error(err),
         { enableHighAccuracy: true }
       );
     }
 
-    // ===== STOP TRACKING =====
     function stopTracking() {
-      console.log("Stop tracking");
-
       if (watchId !== null) {
         navigator.geolocation.clearWatch(watchId);
       }
@@ -136,34 +124,19 @@
         gps_path: JSON.stringify(pathCoords),
       };
 
-      sendWalkToSheet(walkData);
+      fetch(
+        "https://script.google.com/macros/s/AKfycbzKDyabQAXEu_mQXcOQvm0CF55gOddh1p1jPyknpnbHplwCA8NSBsi3fbEhgv_sWLKUMA/exec",
+        {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(walkData),
+        }
+      );
+
+      alert("Saved to Google Sheet ✅");
     }
 
-    // ===== SEND TO GOOGLE SHEET =====
-    async function sendWalkToSheet(walkData) {
-      try {
-        console.log("Sending to Google Sheet:", walkData);
-
-        await fetch(
-          "https://script.google.com/macros/s/AKfycbzKDyabQAXEu_mQXcOQvm0CF55gOddh1p1jPyknpnbHplwCA8NSBsi3fbEhgv_sWLKUMA/exec",
-          {
-            method: "POST",
-            mode: "no-cors",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(walkData),
-          }
-        );
-
-        alert("Saved to Google Sheet ✅");
-      } catch (err) {
-        console.error(err);
-        alert("Send failed ❌");
-      }
-    }
-
-    // ===== DISTANCE (HAVERSINE) =====
     function getDistance(p1, p2) {
       const R = 6371000;
       const toRad = (x) => (x * Math.PI) / 180;
