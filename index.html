@@ -1,111 +1,184 @@
-// ===============================
-// WALK TRACKER (FULL VERSION)
-// ===============================
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Walk Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-let watchId = null;
-let startTime = null;
-let totalDistance = 0;
-let lastPosition = null;
-let pathCoords = [];
+  <!-- ✅ Google Maps (ใส่ key แล้ว) -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
 
-// ===== START TRACKING =====
-function startTracking() {
-  console.log("Start tracking");
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: system-ui;
+    }
 
-  totalDistance = 0;
-  pathCoords = [];
-  lastPosition = null;
-  startTime = new Date();
+    #map {
+      height: 100%;
+      width: 100%;
+    }
 
-  if (!navigator.geolocation) {
-    alert("Geolocation not supported");
-    return;
-  }
+    .controls {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      padding: 12px 18px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
 
-  watchId = navigator.geolocation.watchPosition(
-    (pos) => {
-      const { latitude, longitude } = pos.coords;
+    button {
+      padding: 10px 18px;
+      margin: 0 6px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
 
-      const current = { lat: latitude, lng: longitude };
-      pathCoords.push(current);
+    .start { background: #22c55e; color: white; }
+    .stop { background: #ef4444; color: white; }
+  </style>
+</head>
 
-      // คำนวณระยะทาง
-      if (lastPosition) {
-        totalDistance += getDistance(lastPosition, current);
+<body>
+  <div id="map"></div>
+
+  <div class="controls">
+    <button class="start" onclick="startTracking()">Start</button>
+    <button class="stop" onclick="stopTracking()">Stop</button>
+  </div>
+
+  <script>
+    let map;
+    let watchId = null;
+    let startTime = null;
+    let totalDistance = 0;
+    let lastPosition = null;
+    let pathCoords = [];
+    let polyline;
+
+    // ===== INIT MAP =====
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 13.7563, lng: 100.5018 },
+        zoom: 16,
+      });
+
+      polyline = new google.maps.Polyline({
+        map,
+        path: [],
+        strokeColor: "#22c55e",
+        strokeWeight: 4,
+      });
+    }
+
+    window.onload = initMap;
+
+    // ===== START TRACKING =====
+    function startTracking() {
+      console.log("Start tracking");
+
+      totalDistance = 0;
+      pathCoords = [];
+      lastPosition = null;
+      startTime = new Date();
+
+      if (!navigator.geolocation) {
+        alert("Geolocation not supported");
+        return;
       }
 
-      lastPosition = current;
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const current = { lat: latitude, lng: longitude };
 
-      console.log("Distance (m):", totalDistance.toFixed(2));
-    },
-    (err) => {
-      console.error("GPS error:", err);
-    },
-    { enableHighAccuracy: true }
-  );
-}
+          pathCoords.push(current);
+          polyline.setPath(pathCoords);
+          map.panTo(current);
 
-// ===== STOP TRACKING =====
-function stopTracking() {
-  console.log("Stop tracking");
+          if (lastPosition) {
+            totalDistance += getDistance(lastPosition, current);
+          }
 
-  if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
-  }
-
-  const endTime = new Date();
-  const durationMin = (endTime - startTime) / 60000;
-  const co2Saved = totalDistance * 0.00021; // ปรับสูตรได้
-
-  const walkData = {
-    user_email: "test@email.com", // 🔥 ภายหลังค่อยทำ dynamic
-    distance_m: Number(totalDistance.toFixed(2)),
-    duration_min: Number(durationMin.toFixed(2)),
-    co2_saved_kg: Number(co2Saved.toFixed(3)),
-    started_at: startTime.toISOString(),
-    ended_at: endTime.toISOString(),
-    gps_path: JSON.stringify(pathCoords),
-  };
-
-  sendWalkToSheet(walkData);
-}
-
-// ===== SEND TO GOOGLE SHEET =====
-async function sendWalkToSheet(walkData) {
-  try {
-    console.log("Sending to Google Sheet:", walkData);
-
-    await fetch(
-      "https://script.google.com/macros/s/AKfycbzKDyabQAXEu_mQXcOQvm0CF55gOddh1p1jPyknpnbHplwCA8NSBsi3fbEhgv_sWLKUMA/exec",
-      {
-        method: "POST",
-        mode: "no-cors", // ⭐ สำคัญ
-        headers: {
-          "Content-Type": "application/json",
+          lastPosition = current;
         },
-        body: JSON.stringify(walkData),
+        (err) => console.error("GPS error:", err),
+        { enableHighAccuracy: true }
+      );
+    }
+
+    // ===== STOP TRACKING =====
+    function stopTracking() {
+      console.log("Stop tracking");
+
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
       }
-    );
 
-    console.log("✅ Sent to Google Sheet");
-  } catch (err) {
-    console.error("❌ Send failed:", err);
-  }
-}
+      const endTime = new Date();
+      const durationMin = (endTime - startTime) / 60000;
+      const co2Saved = totalDistance * 0.00021;
 
-// ===== DISTANCE CALC (Haversine) =====
-function getDistance(p1, p2) {
-  const R = 6371000;
-  const toRad = (x) => (x * Math.PI) / 180;
+      const walkData = {
+        user_email: "test@email.com",
+        distance_m: Number(totalDistance.toFixed(2)),
+        duration_min: Number(durationMin.toFixed(2)),
+        co2_saved_kg: Number(co2Saved.toFixed(3)),
+        started_at: startTime.toISOString(),
+        ended_at: endTime.toISOString(),
+        gps_path: JSON.stringify(pathCoords),
+      };
 
-  const dLat = toRad(p2.lat - p1.lat);
-  const dLon = toRad(p2.lng - p1.lng);
+      sendWalkToSheet(walkData);
+    }
 
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(p1.lat)) *
-      Math.cos(toRad(p2.lat)) *
-      Math.sin(dLon / 2) ** 2;
+    // ===== SEND TO GOOGLE SHEET =====
+    async function sendWalkToSheet(walkData) {
+      try {
+        console.log("Sending to Google Sheet:", walkData);
 
-  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+        await fetch(
+          "https://script.google.com/macros/s/AKfycbzKDyabQAXEu_mQXcOQvm0CF55gOddh1p1jPyknpnbHplwCA8NSBsi3fbEhgv_sWLKUMA/exec",
+          {
+            method: "POST",
+            mode: "no-cors",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(walkData),
+          }
+        );
+
+        alert("Saved to Google Sheet ✅");
+      } catch (err) {
+        console.error(err);
+        alert("Send failed ❌");
+      }
+    }
+
+    // ===== DISTANCE (HAVERSINE) =====
+    function getDistance(p1, p2) {
+      const R = 6371000;
+      const toRad = (x) => (x * Math.PI) / 180;
+
+      const dLat = toRad(p2.lat - p1.lat);
+      const dLon = toRad(p2.lng - p1.lng);
+
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(p1.lat)) *
+          Math.cos(toRad(p2.lat)) *
+          Math.sin(dLon / 2) ** 2;
+
+      return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+  </script>
+</body>
+</html>
