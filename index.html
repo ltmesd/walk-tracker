@@ -1,38 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <title>SUSTEP</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="utf-8" />
+<title>SUSTEP</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
 
-  <style>
-    html,body{margin:0;height:100%;font-family:system-ui;background:#f4f7f6}
-    #map{height:100%;width:100%}
+<style>
+html,body{margin:0;height:100%;font-family:system-ui;background:#f4f7f6}
+#map{height:100%;width:100%}
 
-    .controls{
-      position:absolute;bottom:20px;left:50%;
-      transform:translateX(-50%);
-      background:white;padding:16px 20px;
-      border-radius:18px;
-      box-shadow:0 12px 30px rgba(0,0,0,.18);
-      text-align:center;min-width:260px;
-    }
+/* floating controls */
+.controls{
+  position:absolute;
+  bottom:24px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(255,255,255,.95);
+  backdrop-filter:blur(10px);
+  padding:18px 22px;
+  border-radius:26px;
+  box-shadow:0 20px 50px rgba(0,0,0,.25);
+  text-align:center;
+  min-width:280px;
+}
 
-    .stats{font-size:14px;margin-bottom:8px;line-height:1.5}
-    .time{font-size:13px;color:#666}
+.stats{font-size:14px;margin-bottom:8px;line-height:1.5}
+.time{font-size:13px;color:#666}
 
-    button{
-      padding:10px 16px;margin:4px;border:none;
-      border-radius:10px;font-size:15px;cursor:pointer
-    }
-    button:disabled{opacity:.4;cursor:not-allowed}
+button{
+  padding:14px 20px;
+  margin:6px;
+  border:none;
+  border-radius:999px;
+  font-size:16px;
+  font-weight:600;
+  cursor:pointer;
+  transition:.2s ease;
+}
+button:active{transform:scale(.96)}
+button:disabled{opacity:.4;cursor:not-allowed}
 
-    .start{background:#22c55e;color:white}
-    .pause{background:#f59e0b;color:white}
-    .finish{background:#ef4444;color:white}
-  </style>
+.start{background:#22c55e;color:white}
+.pause{background:#f59e0b;color:white}
+.finish{background:#ef4444;color:white}
+</style>
 </head>
 
 <body>
@@ -50,36 +63,98 @@
   <button id="finishBtn" class="finish">Finish</button>
 </div>
 
+<!-- Summary Modal -->
+<div id="summaryModal" style="
+position:fixed;
+inset:0;
+background:rgba(0,0,0,.45);
+display:none;
+align-items:center;
+justify-content:center;
+z-index:999;">
+  <div style="
+    background:white;
+    padding:28px;
+    border-radius:24px;
+    width:85%;
+    max-width:320px;
+    text-align:center;
+    box-shadow:0 30px 80px rgba(0,0,0,.3);">
+    <h2 style="margin-top:0">🎉 Walk Complete</h2>
+    <div style="font-size:18px;margin:10px 0">
+      <b id="sumDist">0.00</b> km
+    </div>
+    <div style="color:#666;margin-bottom:8px">
+      เวลา <b id="sumTime">00:00</b>
+    </div>
+    <div style="color:#16a34a;margin-bottom:20px">
+      ลด CO₂ <b id="sumCarbon">0.000</b> kg
+    </div>
+    <button onclick="closeSummary()" class="start">Done</button>
+  </div>
+</div>
+
 <script>
-// ================= CONFIG =================
+// CONFIG
 const EF_CAR = 0.192;
 const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzKDyabQAXEu_mQXcOQvm0CF55gOddh1p1jPyknpnbHplwCA8NSBsi3fbEhgv_sWLKUMA/exec";
 
-// ================= STATE =================
-let map, polyline;
+// STATE
+let map, polyline, userMarker;
 let watchId=null;
 let totalDistance=0;
 let lastPoint=null;
 let pathCoords=[];
 let startTime=null;
+let elapsedBeforePause=0;
+
 let isTracking=false;
+let isPaused=false;
 let sessionActive=false;
+
 let timerInterval=null;
 let stillCounter=0;
 
-// ================= INIT =================
+// INIT
 function initMap(){
   map=new google.maps.Map(document.getElementById("map"),{
-    center:{lat:13.7563,lng:100.5018},zoom:16
+    center:{lat:13.7563,lng:100.5018},
+    zoom:16,
+    gestureHandling:"greedy"
   });
+
   polyline=new google.maps.Polyline({
-    map,path:[],strokeColor:"#22c55e",strokeWeight:4
+    map,
+    path:[],
+    strokeColor:"#22c55e",
+    strokeWeight:5
   });
+
+  // ⭐ current position dot
+  userMarker=new google.maps.Marker({
+    map,
+    position:{lat:13.7563,lng:100.5018},
+    icon:{
+      path:google.maps.SymbolPath.CIRCLE,
+      scale:8,
+      fillColor:"#3b82f6",
+      fillOpacity:1,
+      strokeColor:"#ffffff",
+      strokeWeight:3
+    },
+    zIndex:999
+  });
+
   updateButtons();
 }
 window.onload=initMap;
 
-// ================= DISTANCE =================
+// HAPTIC
+function buzz(ms=30){
+  if(navigator.vibrate) navigator.vibrate(ms);
+}
+
+// DISTANCE
 function getDistance(p1,p2){
   const R=6371000,toRad=x=>x*Math.PI/180;
   const dLat=toRad(p2.lat-p1.lat);
@@ -90,7 +165,7 @@ function getDistance(p1,p2){
   return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-// ================= UI =================
+// UI
 function updateUI(){
   const km=totalDistance/1000;
   document.getElementById("distance").textContent=km.toFixed(2);
@@ -98,15 +173,17 @@ function updateUI(){
 }
 
 function updateButtons(){
-  startBtn.disabled=isTracking;
-  pauseBtn.disabled=!isTracking;
+  startBtn.disabled=sessionActive;
+  pauseBtn.disabled=!sessionActive;
   finishBtn.disabled=!sessionActive;
+  pauseBtn.textContent=isPaused?"Resume":"Pause";
 }
 
-// ================= TIMER =================
+// TIMER
 function startTimer(){
+  clearInterval(timerInterval);
   timerInterval=setInterval(()=>{
-    if(!startTime)return;
+    if(!startTime) return;
     const diff=Date.now()-startTime;
     const min=Math.floor(diff/60000);
     const sec=Math.floor((diff%60000)/1000);
@@ -114,32 +191,30 @@ function startTimer(){
       `${String(min).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
   },1000);
 }
+function stopTimer(){ clearInterval(timerInterval); }
 
-function stopTimer(){
-  clearInterval(timerInterval);
-}
-
-// ================= GPS =================
+// GPS
 function handlePosition(pos){
-  const {latitude,longitude,accuracy,speed}=pos.coords;
-  if(accuracy>30)return;
+  const {latitude,longitude,accuracy}=pos.coords;
+  if(accuracy>30) return;
 
   const current={lat:latitude,lng:longitude};
 
   if(lastPoint){
     const dist=getDistance(lastPoint,current);
+    if(dist>60) return;
 
-    // กันกระโดด
-    if(dist>80)return;
-
-    // ⭐ auto pause ถ้านิ่ง
-    if(dist<1){
+    // auto pause/resume
+    if(dist<0.8){
       stillCounter++;
-      if(stillCounter>=5){
-        pauseTracking(true); // auto
+      if(stillCounter>=6 && isTracking){
+        pauseTracking(true);
       }
       return;
     }else{
+      if(isPaused && stillCounter>=3){
+        pauseTracking(true);
+      }
       stillCounter=0;
     }
 
@@ -149,12 +224,20 @@ function handlePosition(pos){
   lastPoint=current;
   pathCoords.push(current);
   polyline.setPath(pathCoords);
+
+  // move dot
+  if(userMarker) userMarker.setPosition(current);
+
   map.panTo(current);
+  map.setZoom(17);
+
   updateUI();
 }
 
-// ================= START =================
+// START
 startBtn.onclick=()=>{
+  buzz(40);
+
   if(!sessionActive){
     resetSession();
     sessionActive=true;
@@ -162,52 +245,100 @@ startBtn.onclick=()=>{
     startTimer();
   }
 
-  if(isTracking)return;
+  if(isTracking) return;
 
   isTracking=true;
+  isPaused=false;
+
   watchId=navigator.geolocation.watchPosition(
     handlePosition,
     err=>console.error(err),
     {enableHighAccuracy:true,maximumAge:1000,timeout:10000}
   );
+
   updateButtons();
 };
 
-// ================= PAUSE =================
-function pauseTracking(auto=false){
-  if(watchId!==null){
-    navigator.geolocation.clearWatch(watchId);
-    watchId=null;
-  }
-  isTracking=false;
-  updateButtons();
-  if(auto) console.log("Auto paused (user stopped)");
-}
-pauseBtn.onclick=()=>pauseTracking(false);
+// PAUSE / RESUME
+function pauseTracking(){
+  buzz(30);
 
-// ================= FINISH =================
+  if(isTracking){
+    if(watchId!==null){
+      navigator.geolocation.clearWatch(watchId);
+      watchId=null;
+    }
+    elapsedBeforePause = Date.now()-startTime;
+    isTracking=false;
+    isPaused=true;
+    stopTimer();
+  }
+  else if(isPaused){
+    isTracking=true;
+    isPaused=false;
+    startTime=new Date(Date.now()-elapsedBeforePause);
+    startTimer();
+
+    watchId=navigator.geolocation.watchPosition(
+      handlePosition,
+      err=>console.error(err),
+      {enableHighAccuracy:true,maximumAge:1000,timeout:10000}
+    );
+  }
+
+  updateButtons();
+}
+pauseBtn.onclick=()=>pauseTracking();
+
+// FINISH
 finishBtn.onclick=async()=>{
-  pauseTracking(false);
+  buzz(60);
+
+  const ok=confirm("Finish this walk?");
+  if(!ok) return;
+
+  if(isTracking || isPaused) pauseTracking();
+
   stopTimer();
   await sendToSheet();
+
+  showSummary();
+
   resetSession();
   sessionActive=false;
+  isPaused=false;
+
   updateButtons();
 };
 
-// ================= RESET =================
+// SUMMARY
+function showSummary(){
+  document.getElementById("sumDist").textContent=(totalDistance/1000).toFixed(2);
+  document.getElementById("sumTime").textContent=document.getElementById("time").textContent;
+  document.getElementById("sumCarbon").textContent=((totalDistance/1000)*EF_CAR).toFixed(3);
+  document.getElementById("summaryModal").style.display="flex";
+}
+function closeSummary(){
+  document.getElementById("summaryModal").style.display="none";
+}
+
+// RESET
 function resetSession(){
   totalDistance=0;
   lastPoint=null;
   pathCoords=[];
   startTime=null;
+  elapsedBeforePause=0;
   stillCounter=0;
+  isPaused=false;
+  isTracking=false;
+
   polyline.setPath([]);
   document.getElementById("time").textContent="00:00";
   updateUI();
 }
 
-// ================= SEND =================
+// SEND
 async function sendToSheet(){
   try{
     const endTime=new Date();
@@ -231,9 +362,7 @@ async function sendToSheet(){
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify(payload)
     });
-
-    console.log("Saved to sheet");
-  }catch(e){console.error(e)}
+  }catch(e){ console.error(e); }
 }
 </script>
 </body>
