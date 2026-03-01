@@ -2,156 +2,239 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Walk Tracker</title>
+  <title>SUSTEP</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Google Maps -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
 
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: system-ui;
+    html,body{margin:0;height:100%;font-family:system-ui;background:#f4f7f6}
+    #map{height:100%;width:100%}
+
+    .controls{
+      position:absolute;bottom:20px;left:50%;
+      transform:translateX(-50%);
+      background:white;padding:16px 20px;
+      border-radius:18px;
+      box-shadow:0 12px 30px rgba(0,0,0,.18);
+      text-align:center;min-width:260px;
     }
 
-    #map {
-      height: 100%;
-      width: 100%;
-    }
+    .stats{font-size:14px;margin-bottom:8px;line-height:1.5}
+    .time{font-size:13px;color:#666}
 
-    .controls {
-      position: absolute;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: white;
-      padding: 12px 18px;
-      border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    button{
+      padding:10px 16px;margin:4px;border:none;
+      border-radius:10px;font-size:15px;cursor:pointer
     }
+    button:disabled{opacity:.4;cursor:not-allowed}
 
-    button {
-      padding: 10px 18px;
-      margin: 0 6px;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    .start { background: #22c55e; color: white; }
-    .stop { background: #ef4444; color: white; }
+    .start{background:#22c55e;color:white}
+    .pause{background:#f59e0b;color:white}
+    .finish{background:#ef4444;color:white}
   </style>
 </head>
 
 <body>
-  <div id="map"></div>
+<div id="map"></div>
 
-  <div class="controls">
-    <button class="start" onclick="startTracking()">Start</button>
-    <button class="stop" onclick="stopTracking()">Stop</button>
+<div class="controls">
+  <div class="stats">
+    ระยะทาง: <b><span id="distance">0.00</span> km</b><br>
+    ลดคาร์บอน: <b><span id="carbon">0.000</span> kgCO₂e</b><br>
+    <span class="time">เวลา: <span id="time">00:00</span></span>
   </div>
 
-  <script>
-    let map;
-    let watchId = null;
-    let startTime = null;
-    let totalDistance = 0;
-    let lastPosition = null;
-    let pathCoords = [];
-    let polyline;
+  <button id="startBtn" class="start">Start</button>
+  <button id="pauseBtn" class="pause">Pause</button>
+  <button id="finishBtn" class="finish">Finish</button>
+</div>
 
-    function initMap() {
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: 13.7563, lng: 100.5018 },
-        zoom: 16,
-      });
+<script>
+// ================= CONFIG =================
+const EF_CAR = 0.192;
+const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzKDyabQAXEu_mQXcOQvm0CF55gOddh1p1jPyknpnbHplwCA8NSBsi3fbEhgv_sWLKUMA/exec";
 
-      polyline = new google.maps.Polyline({
-        map,
-        path: [],
-        strokeColor: "#22c55e",
-        strokeWeight: 4,
-      });
-    }
+// ================= STATE =================
+let map, polyline;
+let watchId=null;
+let totalDistance=0;
+let lastPoint=null;
+let pathCoords=[];
+let startTime=null;
+let isTracking=false;
+let sessionActive=false;
+let timerInterval=null;
+let stillCounter=0;
 
-    window.onload = initMap;
+// ================= INIT =================
+function initMap(){
+  map=new google.maps.Map(document.getElementById("map"),{
+    center:{lat:13.7563,lng:100.5018},zoom:16
+  });
+  polyline=new google.maps.Polyline({
+    map,path:[],strokeColor:"#22c55e",strokeWeight:4
+  });
+  updateButtons();
+}
+window.onload=initMap;
 
-    function startTracking() {
-      totalDistance = 0;
-      pathCoords = [];
-      lastPosition = null;
-      startTime = new Date();
+// ================= DISTANCE =================
+function getDistance(p1,p2){
+  const R=6371000,toRad=x=>x*Math.PI/180;
+  const dLat=toRad(p2.lat-p1.lat);
+  const dLon=toRad(p2.lng-p1.lng);
+  const a=Math.sin(dLat/2)**2+
+    Math.cos(toRad(p1.lat))*Math.cos(toRad(p2.lat))*
+    Math.sin(dLon/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
 
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          const { latitude, longitude } = pos.coords;
-          const current = { lat: latitude, lng: longitude };
+// ================= UI =================
+function updateUI(){
+  const km=totalDistance/1000;
+  document.getElementById("distance").textContent=km.toFixed(2);
+  document.getElementById("carbon").textContent=(km*EF_CAR).toFixed(3);
+}
 
-          pathCoords.push(current);
-          polyline.setPath(pathCoords);
-          map.panTo(current);
+function updateButtons(){
+  startBtn.disabled=isTracking;
+  pauseBtn.disabled=!isTracking;
+  finishBtn.disabled=!sessionActive;
+}
 
-          if (lastPosition) {
-            totalDistance += getDistance(lastPosition, current);
-          }
+// ================= TIMER =================
+function startTimer(){
+  timerInterval=setInterval(()=>{
+    if(!startTime)return;
+    const diff=Date.now()-startTime;
+    const min=Math.floor(diff/60000);
+    const sec=Math.floor((diff%60000)/1000);
+    document.getElementById("time").textContent=
+      `${String(min).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+  },1000);
+}
 
-          lastPosition = current;
-        },
-        (err) => console.error(err),
-        { enableHighAccuracy: true }
-      );
-    }
+function stopTimer(){
+  clearInterval(timerInterval);
+}
 
-    function stopTracking() {
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
+// ================= GPS =================
+function handlePosition(pos){
+  const {latitude,longitude,accuracy,speed}=pos.coords;
+  if(accuracy>30)return;
+
+  const current={lat:latitude,lng:longitude};
+
+  if(lastPoint){
+    const dist=getDistance(lastPoint,current);
+
+    // กันกระโดด
+    if(dist>80)return;
+
+    // ⭐ auto pause ถ้านิ่ง
+    if(dist<1){
+      stillCounter++;
+      if(stillCounter>=5){
+        pauseTracking(true); // auto
       }
-
-      const endTime = new Date();
-      const durationMin = (endTime - startTime) / 60000;
-      const co2Saved = totalDistance * 0.00021;
-
-      const walkData = {
-        user_email: "test@email.com",
-        distance_m: Number(totalDistance.toFixed(2)),
-        duration_min: Number(durationMin.toFixed(2)),
-        co2_saved_kg: Number(co2Saved.toFixed(3)),
-        started_at: startTime.toISOString(),
-        ended_at: endTime.toISOString(),
-        gps_path: JSON.stringify(pathCoords),
-      };
-
-      fetch(
-        "https://script.google.com/macros/s/AKfycbzKDyabQAXEu_mQXcOQvm0CF55gOddh1p1jPyknpnbHplwCA8NSBsi3fbEhgv_sWLKUMA/exec",
-        {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(walkData),
-        }
-      );
-
-      alert("Saved to Google Sheet ✅");
+      return;
+    }else{
+      stillCounter=0;
     }
 
-    function getDistance(p1, p2) {
-      const R = 6371000;
-      const toRad = (x) => (x * Math.PI) / 180;
+    totalDistance+=dist;
+  }
 
-      const dLat = toRad(p2.lat - p1.lat);
-      const dLon = toRad(p2.lng - p1.lng);
+  lastPoint=current;
+  pathCoords.push(current);
+  polyline.setPath(pathCoords);
+  map.panTo(current);
+  updateUI();
+}
 
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(p1.lat)) *
-          Math.cos(toRad(p2.lat)) *
-          Math.sin(dLon / 2) ** 2;
+// ================= START =================
+startBtn.onclick=()=>{
+  if(!sessionActive){
+    resetSession();
+    sessionActive=true;
+    startTime=new Date();
+    startTimer();
+  }
 
-      return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    }
-  </script>
+  if(isTracking)return;
+
+  isTracking=true;
+  watchId=navigator.geolocation.watchPosition(
+    handlePosition,
+    err=>console.error(err),
+    {enableHighAccuracy:true,maximumAge:1000,timeout:10000}
+  );
+  updateButtons();
+};
+
+// ================= PAUSE =================
+function pauseTracking(auto=false){
+  if(watchId!==null){
+    navigator.geolocation.clearWatch(watchId);
+    watchId=null;
+  }
+  isTracking=false;
+  updateButtons();
+  if(auto) console.log("Auto paused (user stopped)");
+}
+pauseBtn.onclick=()=>pauseTracking(false);
+
+// ================= FINISH =================
+finishBtn.onclick=async()=>{
+  pauseTracking(false);
+  stopTimer();
+  await sendToSheet();
+  resetSession();
+  sessionActive=false;
+  updateButtons();
+};
+
+// ================= RESET =================
+function resetSession(){
+  totalDistance=0;
+  lastPoint=null;
+  pathCoords=[];
+  startTime=null;
+  stillCounter=0;
+  polyline.setPath([]);
+  document.getElementById("time").textContent="00:00";
+  updateUI();
+}
+
+// ================= SEND =================
+async function sendToSheet(){
+  try{
+    const endTime=new Date();
+    const km=totalDistance/1000;
+    const durationMin=startTime?(endTime-startTime)/60000:0;
+
+    const payload={
+      action:"finish",
+      distance_km:Number(km.toFixed(3)),
+      duration_min:Number(durationMin.toFixed(2)),
+      carbon_kgco2e:Number((km*EF_CAR).toFixed(3)),
+      started_at:startTime?startTime.toISOString():null,
+      ended_at:endTime.toISOString(),
+      path_points:pathCoords.length,
+      gps_path:JSON.stringify(pathCoords)
+    };
+
+    await fetch(WEBHOOK_URL,{
+      method:"POST",
+      mode:"no-cors",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload)
+    });
+
+    console.log("Saved to sheet");
+  }catch(e){console.error(e)}
+}
+</script>
 </body>
 </html>
