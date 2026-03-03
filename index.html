@@ -3,27 +3,22 @@
 <head>
 <meta charset="utf-8" />
 <title>SUSTEP</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
+<!-- ⭐ ใส่ API KEY ของคุณ -->
+<script src="https://maps.googleapis.com/maps/api/js?key=PUT_YOUR_API_KEY_HERE"></script>
 
 <style>
-html,body{
-  margin:0;
-  height:100%;
-  font-family:system-ui;
-  background:#f4f7f6;
-}
-#map{
-  height:100%;
-  width:100%;
-}
+html,body{margin:0;height:100%;font-family:system-ui;background:#f4f7f6}
+#map{height:100%;width:100%}
+
 .controls{
   position:absolute;
   left:50%;
   transform:translateX(-50%);
   bottom:16px;
   background:rgba(255,255,255,.96);
+  backdrop-filter:blur(12px);
   padding:14px 16px;
   border-radius:20px;
   box-shadow:0 15px 40px rgba(0,0,0,.22);
@@ -31,20 +26,31 @@ html,body{
   width:92%;
   max-width:320px;
 }
+
+.stats{font-size:14px;margin-bottom:8px;line-height:1.5}
+.time{font-size:13px;color:#666}
+
 button{
-  padding:12px 16px;
-  margin:4px;
-  border:none;
-  border-radius:999px;
-  font-size:15px;
-  font-weight:600;
+  padding:12px 16px;margin:4px;border:none;
+  border-radius:999px;font-size:15px;font-weight:600;
 }
 .start{background:#22c55e;color:white}
 .pause{background:#f59e0b;color:white}
 .finish{background:#ef4444;color:white}
+button:disabled{opacity:.4}
+
 .btn-row{display:flex;gap:8px}
 .btn-row button{flex:1}
 .finish{width:100%;margin-top:6px}
+
+#summaryModal{
+  position:fixed;inset:0;background:rgba(0,0,0,.45);
+  display:none;align-items:center;justify-content:center;z-index:999;
+}
+.summary-card{
+  background:white;padding:28px;border-radius:24px;
+  width:85%;max-width:320px;text-align:center;
+}
 </style>
 </head>
 
@@ -53,9 +59,11 @@ button{
 <div id="map"></div>
 
 <div class="controls">
-  ระยะทาง: <b><span id="distance">0.00</span> km</b><br>
-  ลดคาร์บอน: <b><span id="carbon">0.000</span> kgCO₂e</b><br>
-  เวลา: <span id="time">00:00</span><br><br>
+  <div class="stats">
+    ระยะทาง: <b><span id="distance">0.00</span> km</b><br>
+    ลดคาร์บอน: <b><span id="carbon">0.000</span> kgCO₂e</b><br>
+    <span class="time">เวลา: <span id="time">00:00</span></span>
+  </div>
 
   <div class="btn-row">
     <button id="startBtn" class="start">Start</button>
@@ -64,35 +72,57 @@ button{
   <button id="finishBtn" class="finish">Finish</button>
 </div>
 
+<div id="summaryModal">
+  <div class="summary-card">
+    <h2>🎉 Walk Complete</h2>
+    <div style="font-size:18px;margin:10px 0">
+      <b id="sumDist">0.00</b> km
+    </div>
+    <div style="color:#666;margin-bottom:8px">
+      เวลา <b id="sumTime">00:00</b>
+    </div>
+    <div style="color:#16a34a;margin-bottom:20px">
+      ลด CO₂ <b id="sumCarbon">0.000</b> kg
+    </div>
+    <button onclick="closeSummary()" class="start">Done</button>
+  </div>
+</div>
+
 <script>
 // =============================
-// CONFIG
+// ⭐ CONFIG (อัปเดตแล้ว)
 // =============================
+const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzEyJ8DNoFi4G5yQV-qGt9WQGJM-AXM3ARlI9jlX5U608t5t6uJ0lPAvm4E3gSUWmZC/exec";
 const EF_CAR = 0.192;
 
 // =============================
-// STATE
+// ⭐ STATE
 // =============================
 let map, polyline, userMarker;
 let watchId = null;
+
 let totalDistance = 0;
 let lastPoint = null;
+let pathCoords = [];
+
+let startTime = null;
 let elapsedSeconds = 0;
 let timerInterval = null;
+
 let isTracking = false;
+let isPaused = false;
+let sessionActive = false;
 
 // =============================
-// MAP
+// ⭐ MAP
 // =============================
 function initMap() {
-
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 13.7563, lng: 100.5018 },
-    zoom: 17,
+    zoom: 16,
     gestureHandling: "greedy"
   });
 
-  // เส้นทาง
   polyline = new google.maps.Polyline({
     map,
     path: [],
@@ -100,54 +130,57 @@ function initMap() {
     strokeWeight: 5
   });
 
-  // ⭐⭐⭐ จุดฟ้ากลมแบบในรูป ⭐⭐⭐
+  // ⭐ จุดฟ้า
   userMarker = new google.maps.Marker({
     map,
     position: { lat: 13.7563, lng: 100.5018 },
-    icon: {
+    icon:{
       path: google.maps.SymbolPath.CIRCLE,
-      scale: 8,
-      fillColor: "#3b82f6",
-      fillOpacity: 1,
-      strokeColor: "#ffffff",
-      strokeWeight: 3
-    },
-    zIndex: 999
+      scale:8,
+      fillColor:"#3b82f6",
+      fillOpacity:1,
+      strokeColor:"#ffffff",
+      strokeWeight:3
+    }
   });
+
+  updateButtons();
 }
-window.onload = initMap;
+
+window.addEventListener("load", initMap);
 
 // =============================
-// TIMER
+// ⭐ TIMER
 // =============================
 function startTimer(){
   clearInterval(timerInterval);
-  timerInterval = setInterval(()=>{
+  timerInterval=setInterval(()=>{
     if(!isTracking) return;
     elapsedSeconds++;
     updateUI();
   },1000);
 }
+function stopTimer(){ clearInterval(timerInterval); }
 
 // =============================
-// DISTANCE
+// ⭐ DISTANCE
 // =============================
 function getDistance(p1,p2){
   const R=6371000;
   const toRad=x=>x*Math.PI/180;
   const dLat=toRad(p2.lat-p1.lat);
-  const dLon=toRad(p2.lng-p1.lng);
+  const dLng=toRad(p2.lng-p1.lng);
   const a=Math.sin(dLat/2)**2+
     Math.cos(toRad(p1.lat))*Math.cos(toRad(p2.lat))*
-    Math.sin(dLon/2)**2;
+    Math.sin(dLng/2)**2;
   return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
 // =============================
-// GPS
+// ⭐ GPS
 // =============================
 function handlePosition(pos){
-  if(!isTracking) return;
+  if(!isTracking||isPaused) return;
 
   const {latitude,longitude,accuracy}=pos.coords;
   if(accuracy>30) return;
@@ -160,7 +193,8 @@ function handlePosition(pos){
   }
 
   lastPoint=current;
-  polyline.getPath().push(current);
+  pathCoords.push(current);
+  polyline.setPath(pathCoords);
 
   userMarker.setPosition(current);
   map.panTo(current);
@@ -169,40 +203,128 @@ function handlePosition(pos){
 }
 
 // =============================
-// UI
+// ⭐ UI
 // =============================
 function updateUI(){
   const km=totalDistance/1000;
-  distance.textContent=km.toFixed(2);
-  carbon.textContent=(km*EF_CAR).toFixed(3);
+  document.getElementById("distance").textContent=km.toFixed(2);
+  document.getElementById("carbon").textContent=(km*EF_CAR).toFixed(3);
 
   const m=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
   const s=(elapsedSeconds%60).toString().padStart(2,"0");
-  time.textContent=`${m}:${s}`;
+  document.getElementById("time").textContent=`${m}:${s}`;
+}
+
+function updateButtons(){
+  const startBtn=document.getElementById("startBtn");
+  const pauseBtn=document.getElementById("pauseBtn");
+  const finishBtn=document.getElementById("finishBtn");
+
+  startBtn.disabled=sessionActive;
+  pauseBtn.disabled=!sessionActive;
+  finishBtn.disabled=!sessionActive;
+  pauseBtn.textContent=isPaused?"Resume":"Pause";
 }
 
 // =============================
-// BUTTONS
+// ⭐ START
 // =============================
-startBtn.onclick=()=>{
+document.getElementById("startBtn").onclick=()=>{
+  if(sessionActive) return;
+
+  resetSession();
+  sessionActive=true;
   isTracking=true;
+  isPaused=false;
+
+  startTime=new Date();
   startTimer();
 
   watchId=navigator.geolocation.watchPosition(
     handlePosition,
     err=>console.error(err),
-    {enableHighAccuracy:true}
+    {enableHighAccuracy:true,maximumAge:1000,timeout:10000}
   );
+
+  updateButtons();
 };
 
-pauseBtn.onclick=()=>{
-  isTracking=!isTracking;
+// =============================
+// ⭐ PAUSE
+// =============================
+document.getElementById("pauseBtn").onclick=()=>{
+  if(!sessionActive) return;
+
+  isPaused=!isPaused;
+  isTracking=!isPaused;
+
+  if(isPaused) stopTimer();
+  else startTimer();
+
+  updateButtons();
 };
 
-finishBtn.onclick=()=>{
+// =============================
+// ⭐ FINISH
+// =============================
+document.getElementById("finishBtn").onclick=async()=>{
+  if(!sessionActive) return;
+
+  stopTimer();
+
+  const endTime=new Date();
+  const kmDisplay=Number((totalDistance/1000).toFixed(2));
+
+  const minutes=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
+  const seconds=(elapsedSeconds%60).toString().padStart(2,"0");
+  const timeText=`${minutes}:${seconds}`;
+
+  try{
+    await fetch(WEBHOOK_URL,{
+      method:"POST",
+      headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body:JSON.stringify({
+        user_email:"test@test.com",
+        distance_km:kmDisplay,
+        duration_text:timeText,
+        co2_saved_kg:Number((kmDisplay*EF_CAR).toFixed(3)),
+        started_at:startTime.toISOString(),
+        ended_at:endTime.toISOString(),
+        gps_path:JSON.stringify(pathCoords)
+      })
+    });
+  }catch(e){console.error(e);}
+
+  document.getElementById("sumDist").textContent=kmDisplay.toFixed(2);
+  document.getElementById("sumTime").textContent=timeText;
+  document.getElementById("sumCarbon").textContent=(kmDisplay*EF_CAR).toFixed(3);
+  document.getElementById("summaryModal").style.display="flex";
+
+  if(watchId) navigator.geolocation.clearWatch(watchId);
+
+  sessionActive=false;
+  resetSession();
+  updateButtons();
+};
+
+function closeSummary(){
+  document.getElementById("summaryModal").style.display="none";
+}
+
+// =============================
+// ⭐ RESET
+// =============================
+function resetSession(){
+  totalDistance=0;
+  lastPoint=null;
+  pathCoords=[];
+  elapsedSeconds=0;
+  isPaused=false;
   isTracking=false;
-  clearInterval(timerInterval);
-};
+  polyline.setPath([]);
+  document.getElementById("time").textContent="00:00";
+  updateUI();
+}
 </script>
 
 </body>
