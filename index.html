@@ -5,8 +5,8 @@
 <title>SUSTEP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-<!-- ⭐ ใส่ API KEY ของคุณ -->
-<script src="https://maps.googleapis.com/maps/api/js?key=PUT_YOUR_API_KEY_HERE"></script>
+<!-- ✅ Google Maps API (ใส่ให้แล้ว) -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
 
 <style>
 html,body{margin:0;height:100%;font-family:system-ui;background:#f4f7f6}
@@ -89,53 +89,47 @@ button:disabled{opacity:.4}
 </div>
 
 <script>
-// =============================
-// ⭐ CONFIG (อัปเดตแล้ว)
-// =============================
+// ================= CONFIG =================
 const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzEyJ8DNoFi4G5yQV-qGt9WQGJM-AXM3ARlI9jlX5U608t5t6uJ0lPAvm4E3gSUWmZC/exec";
 const EF_CAR = 0.192;
 
-// =============================
-// ⭐ STATE
-// =============================
+// ================= STATE =================
 let map, polyline, userMarker;
-let watchId = null;
+let watchId=null;
 
-let totalDistance = 0;
-let lastPoint = null;
-let pathCoords = [];
+let totalDistance=0;
+let lastPoint=null;
+let pathCoords=[];
 
-let startTime = null;
-let elapsedSeconds = 0;
-let timerInterval = null;
+let startTime=null;
+let elapsedSeconds=0;
+let timerInterval=null;
 
-let isTracking = false;
-let isPaused = false;
-let sessionActive = false;
+let isTracking=false;
+let isPaused=false;
+let sessionActive=false;
 
-// =============================
-// ⭐ MAP
-// =============================
-function initMap() {
-  map = new google.maps.Map(document.getElementById("map"), {
-    center: { lat: 13.7563, lng: 100.5018 },
-    zoom: 16,
-    gestureHandling: "greedy"
+// ================= MAP =================
+function initMap(){
+  map=new google.maps.Map(document.getElementById("map"),{
+    center:{lat:13.7563,lng:100.5018},
+    zoom:16,
+    gestureHandling:"greedy"
   });
 
-  polyline = new google.maps.Polyline({
+  polyline=new google.maps.Polyline({
     map,
-    path: [],
-    strokeColor: "#22c55e",
-    strokeWeight: 5
+    path:[],
+    strokeColor:"#22c55e",
+    strokeWeight:5
   });
 
   // ⭐ จุดฟ้า
-  userMarker = new google.maps.Marker({
+  userMarker=new google.maps.Marker({
     map,
-    position: { lat: 13.7563, lng: 100.5018 },
+    position:{lat:13.7563,lng:100.5018},
     icon:{
-      path: google.maps.SymbolPath.CIRCLE,
+      path:google.maps.SymbolPath.CIRCLE,
       scale:8,
       fillColor:"#3b82f6",
       fillOpacity:1,
@@ -146,12 +140,9 @@ function initMap() {
 
   updateButtons();
 }
+window.addEventListener("load",initMap);
 
-window.addEventListener("load", initMap);
-
-// =============================
-// ⭐ TIMER
-// =============================
+// ================= TIMER =================
 function startTimer(){
   clearInterval(timerInterval);
   timerInterval=setInterval(()=>{
@@ -162,12 +153,9 @@ function startTimer(){
 }
 function stopTimer(){ clearInterval(timerInterval); }
 
-// =============================
-// ⭐ DISTANCE
-// =============================
+// ================= DISTANCE =================
 function getDistance(p1,p2){
-  const R=6371000;
-  const toRad=x=>x*Math.PI/180;
+  const R=6371000,toRad=x=>x*Math.PI/180;
   const dLat=toRad(p2.lat-p1.lat);
   const dLng=toRad(p2.lng-p1.lng);
   const a=Math.sin(dLat/2)**2+
@@ -176,9 +164,7 @@ function getDistance(p1,p2){
   return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-// =============================
-// ⭐ GPS
-// =============================
+// ================= GPS =================
 function handlePosition(pos){
   if(!isTracking||isPaused) return;
 
@@ -202,9 +188,7 @@ function handlePosition(pos){
   updateUI();
 }
 
-// =============================
-// ⭐ UI
-// =============================
+// ================= UI =================
 function updateUI(){
   const km=totalDistance/1000;
   document.getElementById("distance").textContent=km.toFixed(2);
@@ -226,9 +210,7 @@ function updateButtons(){
   pauseBtn.textContent=isPaused?"Resume":"Pause";
 }
 
-// =============================
-// ⭐ START
-// =============================
+// ================= START =================
 document.getElementById("startBtn").onclick=()=>{
   if(sessionActive) return;
 
@@ -249,9 +231,7 @@ document.getElementById("startBtn").onclick=()=>{
   updateButtons();
 };
 
-// =============================
-// ⭐ PAUSE
-// =============================
+// ================= PAUSE =================
 document.getElementById("pauseBtn").onclick=()=>{
   if(!sessionActive) return;
 
@@ -264,9 +244,7 @@ document.getElementById("pauseBtn").onclick=()=>{
   updateButtons();
 };
 
-// =============================
-// ⭐ FINISH
-// =============================
+// ================= FINISH =================
 document.getElementById("finishBtn").onclick=async()=>{
   if(!sessionActive) return;
 
@@ -311,9 +289,7 @@ function closeSummary(){
   document.getElementById("summaryModal").style.display="none";
 }
 
-// =============================
-// ⭐ RESET
-// =============================
+// ================= RESET =================
 function resetSession(){
   totalDistance=0;
   lastPoint=null;
