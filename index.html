@@ -11,7 +11,6 @@
 html,body{margin:0;height:100%;font-family:system-ui;background:#f4f7f6}
 #map{height:100%;width:100%}
 
-/* ===== POPUP ===== */
 .controls{
   position:absolute;
   left:50%;
@@ -49,7 +48,6 @@ button:disabled{opacity:.4}
 .btn-row button{flex:1}
 .finish{width:100%;margin-top:6px}
 
-/* ===== SUMMARY ===== */
 #summaryModal{
   position:fixed;inset:0;background:rgba(0,0,0,.45);
   display:none;align-items:center;justify-content:center;z-index:999;
@@ -81,7 +79,6 @@ button:disabled{opacity:.4}
   <button id="finishBtn" class="finish">Finish</button>
 </div>
 
-<!-- SUMMARY -->
 <div id="summaryModal">
   <div class="summary-card">
     <h2>🎉 Walk Complete</h2>
@@ -99,10 +96,11 @@ button:disabled{opacity:.4}
 </div>
 
 <script>
-// ===== CONFIG =====
+// ✅ Webhook ของคุณ (ใส่ให้แล้ว)
+const WEBHOOK_URL="https://script.google.com/macros/s/AKfycbxtrh7Nclznen6K-43DvIPwpHM-Pp8dUJ1DqfhhMfhwBdbLoNqDw5_fnetYez_5ZzUz/exec";
+
 const EF_CAR=0.192;
 
-// ===== STATE =====
 let map,polyline,userMarker;
 let watchId=null,totalDistance=0,lastPoint=null,pathCoords=[];
 let startTime=null,elapsedBeforePause=0;
@@ -111,13 +109,16 @@ let timerInterval=null;
 
 // ===== MAP =====
 function initMap(){
-  map=new google.maps.Map(mapDiv,{center:{lat:13.7563,lng:100.5018},zoom:16});
+  map=new google.maps.Map(document.getElementById("map"),{
+    center:{lat:13.7563,lng:100.5018},
+    zoom:16,
+    gestureHandling:"greedy"
+  });
 
   polyline=new google.maps.Polyline({
     map,path:[],strokeColor:"#22c55e",strokeWeight:5
   });
 
-  // ⭐ วงกลมน้ำเงินแบบเดิม
   userMarker=new google.maps.Marker({
     map,
     position:{lat:13.7563,lng:100.5018},
@@ -134,7 +135,6 @@ function initMap(){
 
   updateButtons();
 }
-const mapDiv=document.getElementById("map");
 window.onload=initMap;
 
 // ===== UI =====
@@ -174,7 +174,7 @@ function getDistance(p1,p2){
   return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-// ⭐⭐⭐ FIXED PAUSE ⭐⭐⭐
+// ⭐ FIXED PAUSE
 function handlePosition(pos){
   const {latitude,longitude,accuracy}=pos.coords;
   if(accuracy>30)return;
@@ -201,7 +201,7 @@ function handlePosition(pos){
   updateUI();
 }
 
-// ===== START =====
+// ===== START
 startBtn.onclick=()=>{
   if(!sessionActive){
     resetSession();
@@ -220,7 +220,7 @@ startBtn.onclick=()=>{
   updateButtons();
 };
 
-// ===== PAUSE =====
+// ===== PAUSE
 function pauseTracking(){
   if(isTracking){
     elapsedBeforePause=Date.now()-startTime;
@@ -237,21 +237,39 @@ function pauseTracking(){
 }
 pauseBtn.onclick=pauseTracking;
 
-// ===== FINISH =====
-finishBtn.onclick=()=>{
+// ===== FINISH
+finishBtn.onclick=async()=>{
   if(!confirm("Finish this walk?"))return;
 
   stopTimer();
 
-  // ⭐ แสดงผลก่อน reset
+  const endTime=new Date();
   const km=totalDistance/1000;
+  const durationMin=startTime?(endTime-startTime)/60000:0;
+
+  try{
+    await fetch(WEBHOOK_URL,{
+      method:"POST",
+      headers:{ "Content-Type":"text/plain;charset=utf-8" },
+      body:JSON.stringify({
+        user_email:"",
+        distance_m:Math.round(totalDistance),
+        duration_min:Number(durationMin.toFixed(2)),
+        co2_saved_kg:Number((km*EF_CAR).toFixed(3)),
+        started_at:startTime?startTime.toISOString():"",
+        ended_at:endTime.toISOString(),
+        gps_path:JSON.stringify(pathCoords)
+      })
+    });
+    console.log("✅ sent to sheet");
+  }catch(e){
+    console.error("❌ send error",e);
+  }
+
   sumDist.textContent=km.toFixed(2);
   sumTime.textContent=time.textContent;
   sumCarbon.textContent=(km*EF_CAR).toFixed(3);
   summaryModal.style.display="flex";
-
-  isTracking=false;
-  isPaused=false;
 
   if(watchId){
     navigator.geolocation.clearWatch(watchId);
@@ -267,7 +285,6 @@ function closeSummary(){
   summaryModal.style.display="none";
 }
 
-// ===== RESET =====
 function resetSession(){
   totalDistance=0;
   lastPoint=null;
@@ -281,7 +298,7 @@ function resetSession(){
   updateUI();
 }
 
-// ===== DRAG =====
+// ===== DRAG
 const sheet=document.getElementById("controls");
 let startY=0,currentY=0,startBottom=16,dragging=false;
 
