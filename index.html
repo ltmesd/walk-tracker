@@ -106,35 +106,22 @@ text-align:center;
 
 <script>
 
-// ================= CONFIG =================
-
-const WEBHOOK_URL="https://script.google.com/macros/s/AKfycbzEyJ8DNoFi4G5yQV-qGt9WQGJM-AXM3ARlI9jlX5U608t5t6uJ0lPAvm4E3gSUWmZC/exec";
+// CONFIG
+const WEBHOOK_URL="https://script.google.com/macros/s/AKfycbz04fVf9Kr5QiJpIuJNdPuec5G7mTOTmbPd0246nE1pGlGq5HNlRR_Hc35gDX_ncovG/exec";
 const EF_CAR=0.192;
 
 
-// ================= GET EMAIL FROM URL =================
-
-function getEmailFromURL(){
-
+// GET USER FROM URL
 const params=new URLSearchParams(window.location.search);
 
-let email=params.get("email");
-
-if(!email){
-return "unknown";
-}
-
-return decodeURIComponent(email);
-
-}
-
-const userEmail=getEmailFromURL();
+const userEmail=params.get("email")?decodeURIComponent(params.get("email")):"unknown";
+const userName=params.get("name")?decodeURIComponent(params.get("name")):"unknown";
 
 console.log("User Email:",userEmail);
+console.log("User Name:",userName);
 
 
-// ================= STATE =================
-
+// STATE
 let map,polyline,userMarker;
 let watchId=null;
 
@@ -151,8 +138,7 @@ let isPaused=false;
 let sessionActive=false;
 
 
-// ================= MAP =================
-
+// MAP
 function initMap(){
 
 map=new google.maps.Map(document.getElementById("map"),{
@@ -188,8 +174,7 @@ updateButtons();
 window.addEventListener("load",initMap);
 
 
-// ================= TIMER =================
-
+// TIMER
 function startTimer(){
 
 clearInterval(timerInterval);
@@ -211,8 +196,7 @@ clearInterval(timerInterval);
 }
 
 
-// ================= DISTANCE =================
-
+// DISTANCE
 function getDistance(p1,p2){
 
 const R=6371000;
@@ -230,8 +214,7 @@ return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
 
-// ================= GPS =================
-
+// GPS
 function handlePosition(pos){
 
 if(!isTracking||isPaused) return;
@@ -265,8 +248,7 @@ updateUI();
 }
 
 
-// ================= UI =================
-
+// UI
 function updateUI(){
 
 const km=totalDistance/1000;
@@ -280,7 +262,6 @@ const s=(elapsedSeconds%60).toString().padStart(2,"0");
 document.getElementById("time").textContent=`${m}:${s}`;
 
 }
-
 
 function updateButtons(){
 
@@ -297,8 +278,7 @@ pauseBtn.textContent=isPaused?"Resume":"Pause";
 }
 
 
-// ================= START =================
-
+// START
 document.getElementById("startBtn").onclick=()=>{
 
 if(sessionActive) return;
@@ -324,8 +304,7 @@ updateButtons();
 };
 
 
-// ================= PAUSE =================
-
+// PAUSE
 document.getElementById("pauseBtn").onclick=()=>{
 
 if(!sessionActive) return;
@@ -341,8 +320,7 @@ updateButtons();
 };
 
 
-// ================= FINISH =================
-
+// FINISH
 document.getElementById("finishBtn").onclick=async()=>{
 
 if(!sessionActive) return;
@@ -365,6 +343,7 @@ headers:{ "Content-Type":"text/plain;charset=utf-8" },
 body:JSON.stringify({
 
 user_email:userEmail,
+user_name:userName,
 distance_km:kmDisplay,
 duration_text:timeText,
 co2_saved_kg:Number((kmDisplay*EF_CAR).toFixed(3)),
@@ -396,15 +375,13 @@ updateButtons();
 };
 
 
-// ================= SUMMARY =================
-
+// SUMMARY
 function closeSummary(){
 document.getElementById("summaryModal").style.display="none";
 }
 
 
-// ================= RESET =================
-
+// RESET
 function resetSession(){
 
 totalDistance=0;
