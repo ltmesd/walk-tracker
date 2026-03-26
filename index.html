@@ -7,6 +7,9 @@
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
 
+<!-- ✅ เพิ่มตัวนี้ -->
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
 <style>
 html,body{margin:0;height:100%;font-family:system-ui;background:#f4f7f6}
 #map{height:100%;width:100%}
@@ -99,7 +102,9 @@ text-align:center;
 ลด CO₂ <b id="sumCarbon">0.000</b> kg
 </div>
 
-<button onclick="closeSummary()" class="start">Done</button>
+<!-- ✅ ปุ่มใหม่ -->
+<button onclick="saveImage()" class="start">📸 Save</button>
+<button onclick="closeSummary()" class="pause">Done</button>
 
 </div>
 </div>
@@ -111,14 +116,10 @@ const WEBHOOK_URL="https://script.google.com/macros/s/AKfycbz04fVf9Kr5QiJpIuJNdP
 const EF_CAR=0.192;
 
 
-// GET USER FROM URL
+// USER
 const params=new URLSearchParams(window.location.search);
-
-const userEmail=params.get("email")?decodeURIComponent(params.get("email")):"unknown";
-const userName=params.get("name")?decodeURIComponent(params.get("name")):"unknown";
-
-console.log("User Email:",userEmail);
-console.log("User Name:",userName);
+const userEmail=params.get("email")||"unknown";
+const userName=params.get("name")||"unknown";
 
 
 // STATE
@@ -168,7 +169,6 @@ strokeWeight:3
 });
 
 updateButtons();
-
 }
 
 window.addEventListener("load",initMap);
@@ -176,19 +176,12 @@ window.addEventListener("load",initMap);
 
 // TIMER
 function startTimer(){
-
 clearInterval(timerInterval);
-
 timerInterval=setInterval(()=>{
-
 if(!isTracking) return;
-
 elapsedSeconds++;
-
 updateUI();
-
 },1000);
-
 }
 
 function stopTimer(){
@@ -198,7 +191,6 @@ clearInterval(timerInterval);
 
 // DISTANCE
 function getDistance(p1,p2){
-
 const R=6371000;
 const toRad=x=>x*Math.PI/180;
 
@@ -210,7 +202,6 @@ Math.cos(toRad(p1.lat))*Math.cos(toRad(p2.lat))*
 Math.sin(dLng/2)**2;
 
 return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-
 }
 
 
@@ -220,37 +211,28 @@ function handlePosition(pos){
 if(!isTracking||isPaused) return;
 
 const {latitude,longitude,accuracy}=pos.coords;
-
 if(accuracy>30) return;
 
 const current={lat:latitude,lng:longitude};
 
 if(lastPoint){
-
 const dist=getDistance(lastPoint,current);
-
 if(dist<60) totalDistance+=dist;
-
 }
 
 lastPoint=current;
-
 pathCoords.push(current);
 
 polyline.setPath(pathCoords);
-
 userMarker.setPosition(current);
-
 map.panTo(current);
 
 updateUI();
-
 }
 
 
 // UI
 function updateUI(){
-
 const km=totalDistance/1000;
 
 document.getElementById("distance").textContent=km.toFixed(2);
@@ -260,27 +242,18 @@ const m=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
 const s=(elapsedSeconds%60).toString().padStart(2,"0");
 
 document.getElementById("time").textContent=`${m}:${s}`;
-
 }
 
 function updateButtons(){
-
-const startBtn=document.getElementById("startBtn");
-const pauseBtn=document.getElementById("pauseBtn");
-const finishBtn=document.getElementById("finishBtn");
-
 startBtn.disabled=sessionActive;
 pauseBtn.disabled=!sessionActive;
 finishBtn.disabled=!sessionActive;
-
 pauseBtn.textContent=isPaused?"Resume":"Pause";
-
 }
 
 
 // START
-document.getElementById("startBtn").onclick=()=>{
-
+startBtn.onclick=()=>{
 if(sessionActive) return;
 
 resetSession();
@@ -290,23 +263,16 @@ isTracking=true;
 isPaused=false;
 
 startTime=new Date();
-
 startTimer();
 
-watchId=navigator.geolocation.watchPosition(
-handlePosition,
-err=>console.error(err),
-{enableHighAccuracy:true,maximumAge:1000,timeout:10000}
-);
+watchId=navigator.geolocation.watchPosition(handlePosition);
 
 updateButtons();
-
 };
 
 
 // PAUSE
-document.getElementById("pauseBtn").onclick=()=>{
-
+pauseBtn.onclick=()=>{
 if(!sessionActive) return;
 
 isPaused=!isPaused;
@@ -316,66 +282,48 @@ if(isPaused) stopTimer();
 else startTimer();
 
 updateButtons();
-
 };
 
 
 // FINISH
-document.getElementById("finishBtn").onclick=async()=>{
+finishBtn.onclick=async()=>{
 
 if(!sessionActive) return;
 
 stopTimer();
 
-const endTime=new Date();
-const kmDisplay=Number((totalDistance/1000).toFixed(2));
+const km=(totalDistance/1000).toFixed(2);
+const m=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
+const s=(elapsedSeconds%60).toString().padStart(2,"0");
 
-const minutes=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
-const seconds=(elapsedSeconds%60).toString().padStart(2,"0");
-
-const timeText=`${minutes}:${seconds}`;
-
-try{
-
-await fetch(WEBHOOK_URL,{
-method:"POST",
-headers:{ "Content-Type":"text/plain;charset=utf-8" },
-body:JSON.stringify({
-
-user_email:userEmail,
-user_name:userName,
-distance_km:kmDisplay,
-duration_text:timeText,
-co2_saved_kg:Number((kmDisplay*EF_CAR).toFixed(3)),
-started_at:startTime.toISOString(),
-ended_at:endTime.toISOString(),
-gps_path:JSON.stringify(pathCoords)
-
-})
-});
-
-}catch(e){
-console.error(e);
-}
-
-document.getElementById("sumDist").textContent=kmDisplay.toFixed(2);
-document.getElementById("sumTime").textContent=timeText;
-document.getElementById("sumCarbon").textContent=(kmDisplay*EF_CAR).toFixed(3);
+document.getElementById("sumDist").textContent=km;
+document.getElementById("sumTime").textContent=`${m}:${s}`;
+document.getElementById("sumCarbon").textContent=(km*EF_CAR).toFixed(3);
 
 document.getElementById("summaryModal").style.display="flex";
 
-if(watchId) navigator.geolocation.clearWatch(watchId);
+navigator.geolocation.clearWatch(watchId);
 
 sessionActive=false;
-
 resetSession();
-
 updateButtons();
-
 };
 
 
-// SUMMARY
+// SAVE IMAGE 🔥
+function saveImage(){
+const element=document.querySelector(".summary-card");
+
+html2canvas(element).then(canvas=>{
+const link=document.createElement("a");
+link.download="sustep.png";
+link.href=canvas.toDataURL();
+link.click();
+});
+}
+
+
+// CLOSE
 function closeSummary(){
 document.getElementById("summaryModal").style.display="none";
 }
@@ -383,7 +331,6 @@ document.getElementById("summaryModal").style.display="none";
 
 // RESET
 function resetSession(){
-
 totalDistance=0;
 lastPoint=null;
 pathCoords=[];
@@ -392,11 +339,9 @@ isPaused=false;
 isTracking=false;
 
 polyline.setPath([]);
-
 document.getElementById("time").textContent="00:00";
 
 updateUI();
-
 }
 
 </script>
