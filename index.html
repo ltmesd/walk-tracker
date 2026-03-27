@@ -6,10 +6,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
-<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
 <style>
-html,body{margin:0;height:100%;font-family:-apple-system;background:#f4f7f6}
+html,body{margin:0;height:100%;font-family:system-ui;background:#f4f7f6}
 #map{height:100%;width:100%}
 
 .controls{
@@ -17,70 +16,48 @@ position:absolute;
 left:50%;
 transform:translateX(-50%);
 bottom:16px;
-background:rgba(255,255,255,.95);
-backdrop-filter:blur(20px);
-padding:18px;
-border-radius:26px;
-box-shadow:0 20px 50px rgba(0,0,0,.25);
+background:rgba(255,255,255,.96);
+backdrop-filter:blur(12px);
+padding:14px 16px;
+border-radius:20px;
+box-shadow:0 15px 40px rgba(0,0,0,.22);
 text-align:center;
 width:92%;
-max-width:340px;
+max-width:320px;
 }
 
-.stats{font-size:15px;line-height:1.6}
-
-.btn-row{display:flex;gap:12px;margin-top:14px}
+.stats{font-size:14px;margin-bottom:8px;line-height:1.5}
+.time{font-size:13px;color:#666}
 
 button{
-padding:14px;
-border:none;
-border-radius:999px;
-font-size:16px;
-font-weight:600;
-display:flex;
-align-items:center;
-justify-content:center;
-flex:1;
-gap:6px;
+padding:12px 16px;margin:4px;border:none;
+border-radius:999px;font-size:15px;font-weight:600;
 }
 
-.start{background:#4CAF50;color:white}
-.pause{background:#F4A62A;color:white}
-.finish{background:#E74C3C;color:white;width:100%;margin-top:12px}
+.start{background:#22c55e;color:white}
+.pause{background:#f59e0b;color:white}
+.finish{background:#ef4444;color:white}
+
+button:disabled{opacity:.4}
+
+.btn-row{display:flex;gap:8px}
+.btn-row button{flex:1}
+
+.finish{width:100%;margin-top:6px}
 
 #summaryModal{
-position:fixed;inset:0;
-background:rgba(0,0,0,.4);
-display:none;
-align-items:center;
-justify-content:center;
-z-index:999;
+position:fixed;inset:0;background:rgba(0,0,0,.45);
+display:none;align-items:center;justify-content:center;z-index:999;
 }
 
 .summary-card{
 background:white;
-padding:30px;
-border-radius:28px;
+padding:28px;
+border-radius:24px;
 width:85%;
-max-width:340px;
+max-width:320px;
 text-align:center;
 }
-
-/* ✅ ปรับขนาดตัวเลข (เล็กลง) */
-.main-number{font-size:38px;font-weight:700}
-
-.sub{color:#666;margin-top:6px}
-.green{color:#16a34a;margin-top:6px}
-
-.summary-buttons{
-display:flex;
-gap:14px;
-margin-top:18px;
-}
-
-.summary-buttons button{flex:1}
-.save-btn{background:#4CAF50;color:white}
-.done-btn{background:#F4A62A;color:white}
 </style>
 </head>
 
@@ -89,10 +66,11 @@ margin-top:18px;
 <div id="map"></div>
 
 <div class="controls">
+
 <div class="stats">
-ระยะทาง <b><span id="distance">0.00</span> km</b><br>
-ลด <b><span id="carbon">0.000</span> kgCO₂e</b><br>
-เวลา <b><span id="time">00:00</span></b>
+ระยะทาง: <b><span id="distance">0.00</span> km</b><br>
+ลดคาร์บอน: <b><span id="carbon">0.000</span> kgCO₂e</b><br>
+<span class="time">เวลา: <span id="time">00:00</span></span>
 </div>
 
 <div class="btn-row">
@@ -101,64 +79,72 @@ margin-top:18px;
 </div>
 
 <button id="finishBtn" class="finish">Finish</button>
+
 </div>
 
-<!-- SUMMARY -->
 <div id="summaryModal">
-<div class="summary-card" id="captureArea">
+<div class="summary-card">
 
-<h3>Walk Complete</h3>
+<h2>🎉 Walk Complete</h2>
 
-<div class="main-number">
-<span id="sumDist">0.00</span> km
+<div style="font-size:18px;margin:10px 0">
+<b id="sumDist">0.00</b> km
 </div>
 
-<div class="sub">
+<div style="color:#666;margin-bottom:8px">
 เวลา <b id="sumTime">00:00</b>
 </div>
 
-<div class="green">
-ลด <b id="sumCarbon">0.000</b> kgCO₂e
+<div style="color:#16a34a;margin-bottom:20px">
+ลด CO₂ <b id="sumCarbon">0.000</b> kg
 </div>
 
-<div id="finishDateTime" class="sub"></div>
-
-<div class="summary-buttons">
-
-<button onclick="saveImage()" class="save-btn">
-<svg width="18" height="18" viewBox="0 0 24 24" fill="white">
-<path d="M9 2L7 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3l-2-2H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/>
-</svg>
-Save
-</button>
-
-<button onclick="closeSummary()" class="done-btn">Done</button>
-
-</div>
+<button onclick="closeSummary()" class="start">Done</button>
 
 </div>
 </div>
 
 <script>
+
+// CONFIG
 const WEBHOOK_URL="https://script.google.com/macros/s/AKfycbz04fVf9Kr5QiJpIuJNdPuec5G7mTOTmbPd0246nE1pGlGq5HNlRR_Hc35gDX_ncovG/exec";
 const EF_CAR=0.192;
 
-const params=new URLSearchParams(window.location.search);
-const userEmail=params.get("email")||"unknown";
-const userName=params.get("name")||"unknown";
 
-let map,polyline;
+// GET USER FROM URL
+const params=new URLSearchParams(window.location.search);
+
+const userEmail=params.get("email")?decodeURIComponent(params.get("email")):"unknown";
+const userName=params.get("name")?decodeURIComponent(params.get("name")):"unknown";
+
+console.log("User Email:",userEmail);
+console.log("User Name:",userName);
+
+
+// STATE
+let map,polyline,userMarker;
 let watchId=null;
 
-let totalDistance=0,lastPoint=null,pathCoords=[];
-let startTime=null,elapsedSeconds=0,timerInterval;
-let isTracking=false,isPaused=false,sessionActive=false;
+let totalDistance=0;
+let lastPoint=null;
+let pathCoords=[];
 
-/* MAP */
+let startTime=null;
+let elapsedSeconds=0;
+let timerInterval=null;
+
+let isTracking=false;
+let isPaused=false;
+let sessionActive=false;
+
+
+// MAP
 function initMap(){
+
 map=new google.maps.Map(document.getElementById("map"),{
 center:{lat:13.7563,lng:100.5018},
-zoom:16
+zoom:16,
+gestureHandling:"greedy"
 });
 
 polyline=new google.maps.Polyline({
@@ -167,32 +153,70 @@ path:[],
 strokeColor:"#22c55e",
 strokeWeight:5
 });
-}
-window.onload=initMap;
 
-/* TIMER */
+userMarker=new google.maps.Marker({
+map,
+position:{lat:13.7563,lng:100.5018},
+icon:{
+path:google.maps.SymbolPath.CIRCLE,
+scale:8,
+fillColor:"#3b82f6",
+fillOpacity:1,
+strokeColor:"#ffffff",
+strokeWeight:3
+}
+});
+
+updateButtons();
+
+}
+
+window.addEventListener("load",initMap);
+
+
+// TIMER
 function startTimer(){
+
+clearInterval(timerInterval);
+
 timerInterval=setInterval(()=>{
+
 if(!isTracking) return;
+
 elapsedSeconds++;
+
 updateUI();
+
 },1000);
+
 }
 
-function stopTimer(){clearInterval(timerInterval);}
+function stopTimer(){
+clearInterval(timerInterval);
+}
 
-/* DIST */
+
+// DISTANCE
 function getDistance(p1,p2){
-const R=6371000,toRad=x=>x*Math.PI/180;
-const dLat=toRad(p2.lat-p1.lat),dLng=toRad(p2.lng-p1.lng);
+
+const R=6371000;
+const toRad=x=>x*Math.PI/180;
+
+const dLat=toRad(p2.lat-p1.lat);
+const dLng=toRad(p2.lng-p1.lng);
+
 const a=Math.sin(dLat/2)**2+
 Math.cos(toRad(p1.lat))*Math.cos(toRad(p2.lat))*
 Math.sin(dLng/2)**2;
+
 return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+
 }
 
-/* ✅ GPS เสถียรขึ้น */
+
+// ✅ GPS (แก้เฉพาะตรงนี้)
 function handlePosition(pos){
+
 if(!isTracking||isPaused) return;
 
 const {latitude,longitude,accuracy}=pos.coords;
@@ -202,77 +226,124 @@ if(accuracy>50) return;
 const current={lat:latitude,lng:longitude};
 
 if(lastPoint){
+
 const dist=getDistance(lastPoint,current);
 
 if(dist>0.5 && dist<30){
 totalDistance+=dist;
 }
+
 }
 
 lastPoint=current;
 
 pathCoords.push(current);
+
 polyline.setPath(pathCoords);
+
+userMarker.setPosition(current);
 
 map.panTo(current);
 
 updateUI();
+
 }
 
-/* UI */
+
+// UI
 function updateUI(){
+
 const km=totalDistance/1000;
-distance.textContent=km.toFixed(2);
-carbon.textContent=(km*EF_CAR).toFixed(3);
+
+document.getElementById("distance").textContent=km.toFixed(2);
+document.getElementById("carbon").textContent=(km*EF_CAR).toFixed(3);
 
 const m=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
 const s=(elapsedSeconds%60).toString().padStart(2,"0");
-time.textContent=`${m}:${s}`;
+
+document.getElementById("time").textContent=`${m}:${s}`;
+
 }
 
-/* START */
-startBtn.onclick=()=>{
+function updateButtons(){
+
+const startBtn=document.getElementById("startBtn");
+const pauseBtn=document.getElementById("pauseBtn");
+const finishBtn=document.getElementById("finishBtn");
+
+startBtn.disabled=sessionActive;
+pauseBtn.disabled=!sessionActive;
+finishBtn.disabled=!sessionActive;
+
+pauseBtn.textContent=isPaused?"Resume":"Pause";
+
+}
+
+
+// START
+document.getElementById("startBtn").onclick=()=>{
+
+if(sessionActive) return;
+
 resetSession();
+
 sessionActive=true;
 isTracking=true;
 isPaused=false;
+
 startTime=new Date();
+
 startTimer();
 
-/* ✅ ปรับ GPS */
 watchId=navigator.geolocation.watchPosition(
 handlePosition,
-(err)=>console.log(err),
-{
-enableHighAccuracy:true,
-maximumAge:0,
-timeout:10000
-}
+err=>console.error(err),
+{enableHighAccuracy:true,maximumAge:0,timeout:10000} // ✅ แก้ตรงนี้
 );
+
+updateButtons();
+
 };
 
-/* PAUSE */
-pauseBtn.onclick=()=>{
+
+// PAUSE
+document.getElementById("pauseBtn").onclick=()=>{
+
+if(!sessionActive) return;
+
 isPaused=!isPaused;
 isTracking=!isPaused;
-if(isPaused) stopTimer(); else startTimer();
+
+if(isPaused) stopTimer();
+else startTimer();
+
+updateButtons();
+
 };
 
-/* FINISH */
-finishBtn.onclick=async()=>{
+
+// FINISH
+document.getElementById("finishBtn").onclick=async()=>{
+
+if(!sessionActive) return;
+
 stopTimer();
 
 const endTime=new Date();
 const kmDisplay=Number((totalDistance/1000).toFixed(2));
 
-const m=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
-const s=(elapsedSeconds%60).toString().padStart(2,"0");
-const timeText=`${m}:${s}`;
+const minutes=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
+const seconds=(elapsedSeconds%60).toString().padStart(2,"0");
+
+const timeText=`${minutes}:${seconds}`;
+
+try{
 
 await fetch(WEBHOOK_URL,{
 method:"POST",
 headers:{ "Content-Type":"text/plain;charset=utf-8" },
 body:JSON.stringify({
+
 user_email:userEmail,
 user_name:userName,
 distance_km:kmDisplay,
@@ -281,52 +352,55 @@ co2_saved_kg:Number((kmDisplay*EF_CAR).toFixed(3)),
 started_at:startTime.toISOString(),
 ended_at:endTime.toISOString(),
 gps_path:JSON.stringify(pathCoords)
+
 })
 });
 
-sumDist.textContent=kmDisplay.toFixed(2);
-sumTime.textContent=timeText;
-sumCarbon.textContent=(kmDisplay*EF_CAR).toFixed(3);
+}catch(e){
+console.error(e);
+}
 
-const d=String(endTime.getDate()).padStart(2,'0');
-const mo=String(endTime.getMonth()+1).padStart(2,'0');
-const y=endTime.getFullYear();
-const h=String(endTime.getHours()).padStart(2,'0');
-const mi=String(endTime.getMinutes()).padStart(2,'0');
+document.getElementById("sumDist").textContent=kmDisplay.toFixed(2);
+document.getElementById("sumTime").textContent=timeText;
+document.getElementById("sumCarbon").textContent=(kmDisplay*EF_CAR).toFixed(3);
 
-finishDateTime.textContent=`${d}/${mo}/${y} ${h}:${mi}`;
+document.getElementById("summaryModal").style.display="flex";
 
-summaryModal.style.display="flex";
+if(watchId) navigator.geolocation.clearWatch(watchId);
 
-navigator.geolocation.clearWatch(watchId);
+sessionActive=false;
+
 resetSession();
+
+updateButtons();
+
 };
 
-/* SAVE */
-function saveImage(){
-html2canvas(document.querySelector("#captureArea")).then(canvas=>{
-const link=document.createElement("a");
-link.download="sustep.png";
-link.href=canvas.toDataURL();
-link.click();
-});
-}
 
+// SUMMARY
 function closeSummary(){
-summaryModal.style.display="none";
+document.getElementById("summaryModal").style.display="none";
 }
 
+
+// RESET
 function resetSession(){
+
 totalDistance=0;
 lastPoint=null;
 pathCoords=[];
 elapsedSeconds=0;
 isPaused=false;
 isTracking=false;
+
 polyline.setPath([]);
-time.textContent="00:00";
+
+document.getElementById("time").textContent="00:00";
+
 updateUI();
+
 }
+
 </script>
 
 </body>
