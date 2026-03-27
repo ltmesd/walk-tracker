@@ -3,68 +3,121 @@
 <head>
 <meta charset="utf-8" />
 <title>SUSTEP</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD7xnpAUWUrhzQwSQZlfasfGY7ys3WlGOc"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
 <style>
-html,body{margin:0;height:100%;font-family:system-ui}
+html,body{margin:0;height:100%;font-family:-apple-system, BlinkMacSystemFont, sans-serif;background:#f4f7f6}
 #map{height:100%;width:100%}
 
+/* ===== CARD ===== */
 .controls{
 position:absolute;
 left:50%;
 transform:translateX(-50%);
 bottom:16px;
-background:white;
-padding:16px;
-border-radius:20px;
-box-shadow:0 10px 30px rgba(0,0,0,.2);
-width:90%;
-max-width:320px;
+background:rgba(255,255,255,.95);
+backdrop-filter:blur(20px);
+padding:18px;
+border-radius:26px;
+box-shadow:0 20px 50px rgba(0,0,0,.25);
 text-align:center;
+width:92%;
+max-width:340px;
 }
 
-.btn-row{display:flex;gap:12px;margin-top:10px}
-.btn-row button{flex:1}
+/* ===== TEXT ===== */
+.stats{
+font-size:15px;
+line-height:1.6;
+}
+
+.stats b{
+font-weight:700;
+}
+
+/* ===== BUTTONS ===== */
+.btn-row{
+display:flex;
+gap:12px;
+margin-top:14px;
+}
 
 button{
 padding:14px;
 border:none;
 border-radius:999px;
+font-size:16px;
 font-weight:600;
 display:flex;
-justify-content:center;
 align-items:center;
+justify-content:center;
+flex:1;
 }
 
-.start{background:#22c55e;color:white}
-.pause{background:#f59e0b;color:white}
-.finish{background:#ef4444;color:white;width:100%;margin-top:10px}
+.start{background:#4CAF50;color:white}
+.pause{background:#F4A62A;color:white}
+.finish{
+background:#E74C3C;
+color:white;
+width:100%;
+margin-top:12px;
+}
 
-/* modal */
+/* ===== MODAL ===== */
 #summaryModal{
-position:fixed;inset:0;
+position:fixed;
+inset:0;
 background:rgba(0,0,0,.4);
 display:none;
 align-items:center;
 justify-content:center;
+z-index:999;
 }
 
 .summary-card{
 background:white;
-padding:28px;
+padding:30px;
 border-radius:28px;
 width:85%;
-max-width:320px;
+max-width:340px;
 text-align:center;
 }
 
-.summary-buttons{display:flex;gap:14px;margin-top:12px}
-.summary-buttons button{flex:1}
-.save-btn{background:#22c55e;color:white}
-.done-btn{background:#f59e0b;color:white}
+/* ===== SUMMARY TEXT ===== */
+.main-number{
+font-size:44px;
+font-weight:700;
+}
+
+.sub{
+color:#666;
+margin-top:6px;
+}
+
+.green{
+color:#16a34a;
+margin-top:6px;
+}
+
+/* ===== BUTTONS ===== */
+.summary-buttons{
+display:flex;
+gap:14px;
+margin-top:18px;
+}
+
+.summary-buttons button{
+flex:1;
+padding:14px;
+border-radius:999px;
+font-weight:600;
+}
+
+.save-btn{background:#4CAF50;color:white}
+.done-btn{background:#F4A62A;color:white}
 </style>
 </head>
 
@@ -72,11 +125,13 @@ text-align:center;
 
 <div id="map"></div>
 
+<!-- ===== CONTROL ===== -->
 <div class="controls">
-<div>
+
+<div class="stats">
 ระยะทาง <b><span id="distance">0.00</span> km</b><br>
 ลด <b><span id="carbon">0.000</span> kgCO₂e</b><br>
-เวลา <span id="time">00:00</span>
+เวลา <b><span id="time">00:00</span></b>
 </div>
 
 <div class="btn-row">
@@ -85,23 +140,31 @@ text-align:center;
 </div>
 
 <button id="finishBtn" class="finish">Finish</button>
+
 </div>
 
-<!-- SUMMARY -->
+<!-- ===== SUMMARY ===== -->
 <div id="summaryModal">
 <div class="summary-card" id="captureArea">
 
 <h3>Walk Complete 🎉</h3>
 
-<h1><span id="sumDist">0.00</span> km</h1>
-<div>เวลา <span id="sumTime">00:00</span></div>
-<div>ลด <span id="sumCarbon">0.000</span> kgCO₂e</div>
-<div id="finishDateTime"></div>
+<div class="main-number">
+<span id="sumDist">0.00</span> km
+</div>
+
+<div class="sub">
+เวลา <b id="sumTime">00:00</b>
+</div>
+
+<div class="green">
+ลด <b id="sumCarbon">0.000</b> kgCO₂e
+</div>
+
+<div id="finishDateTime" class="sub"></div>
 
 <div class="summary-buttons">
-<button onclick="saveImage()" class="save-btn">
-📷 Save
-</button>
+<button onclick="saveImage()" class="save-btn">📷 Save</button>
 <button onclick="closeSummary()" class="done-btn">Done</button>
 </div>
 
@@ -109,47 +172,67 @@ text-align:center;
 </div>
 
 <script>
+
+/* ===== CONFIG (เหมือนเดิม) ===== */
+const WEBHOOK_URL="https://script.google.com/macros/s/AKfycbz04fVf9Kr5QiJpIuJNdPuec5G7mTOTmbPd0246nE1pGlGq5HNlRR_Hc35gDX_ncovG/exec";
 const EF_CAR=0.192;
 
-let map,polyline,marker,watchId;
-let totalDistance=0,lastPoint=null;
-let elapsed=0,timer;
-let isTracking=false;
-let isPaused=false;
+/* ===== USER (เหมือนเดิม) ===== */
+const params=new URLSearchParams(window.location.search);
+const userEmail=params.get("email")||"unknown";
+const userName=params.get("name")||"unknown";
 
-// MAP
+/* ===== STATE ===== */
+let map,polyline,userMarker;
+let watchId=null;
+let totalDistance=0,lastPoint=null,pathCoords=[];
+let startTime=null,elapsedSeconds=0,timerInterval;
+let isTracking=false,isPaused=false,sessionActive=false;
+
+/* ===== MAP ===== */
 function initMap(){
 map=new google.maps.Map(document.getElementById("map"),{
 center:{lat:13.7563,lng:100.5018},
 zoom:16
 });
-polyline=new google.maps.Polyline({map,strokeColor:"#22c55e",strokeWeight:5});
-marker=new google.maps.Marker({map});
+
+polyline=new google.maps.Polyline({
+map,
+path:[],
+strokeColor:"#22c55e",
+strokeWeight:5
+});
+
+userMarker=new google.maps.Marker({map});
 }
 window.onload=initMap;
 
-// TIMER
+/* ===== TIMER ===== */
 function startTimer(){
-timer=setInterval(()=>{
-if(!isTracking||isPaused) return;
-elapsed++;
+timerInterval=setInterval(()=>{
+if(!isTracking) return;
+elapsedSeconds++;
 updateUI();
 },1000);
 }
 
-// DISTANCE
-function getDistance(a,b){
-const R=6371000;
-const toRad=x=>x*Math.PI/180;
-const dLat=toRad(b.lat-a.lat);
-const dLng=toRad(b.lng-a.lng);
-const x=Math.sin(dLat/2)**2+
-Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*
-Math.sin(dLng/2)**2;
-return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+function stopTimer(){
+clearInterval(timerInterval);
 }
 
-// GPS
+/* ===== DISTANCE ===== */
+function getDistance(p1,p2){
+const R=6371000;
+const toRad=x=>x*Math.PI/180;
+const dLat=toRad(p2.lat-p1.lat);
+const dLng=toRad(p2.lng-p1.lng);
+const a=Math.sin(dLat/2)**2+
+Math.cos(toRad(p1.lat))*Math.cos(toRad(p2.lat))*
+Math.sin(dLng/2)**2;
+return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+/* ===== GPS ===== */
 function handlePosition(pos){
 if(!isTracking||isPaused) return;
 
@@ -158,86 +241,98 @@ if(accuracy>30) return;
 
 const current={lat:latitude,lng:longitude};
 
-// ✅ ทำให้ map ตามตัวเรา
-map.setCenter(current);
-marker.setPosition(current);
-
 if(lastPoint){
-const d=getDistance(lastPoint,current);
-if(d>2 && d<80) totalDistance+=d;
+const dist=getDistance(lastPoint,current);
+if(dist<60) totalDistance+=dist;
 }
 
 lastPoint=current;
-polyline.getPath().push(current);
+pathCoords.push(current);
+
+polyline.setPath(pathCoords);
+userMarker.setPosition(current);
+map.panTo(current);
 
 updateUI();
 }
 
-// UI
+/* ===== UI ===== */
 function updateUI(){
 const km=totalDistance/1000;
 distance.textContent=km.toFixed(2);
 carbon.textContent=(km*EF_CAR).toFixed(3);
 
-const m=Math.floor(elapsed/60).toString().padStart(2,"0");
-const s=(elapsed%60).toString().padStart(2,"0");
+const m=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
+const s=(elapsedSeconds%60).toString().padStart(2,"0");
 time.textContent=`${m}:${s}`;
 }
 
-// START
+/* ===== START ===== */
 startBtn.onclick=()=>{
-totalDistance=0;
-elapsed=0;
-lastPoint=null;
-polyline.setPath([]);
-
+resetSession();
+sessionActive=true;
 isTracking=true;
 isPaused=false;
 
+startTime=new Date();
 startTimer();
 
-watchId=navigator.geolocation.watchPosition(handlePosition,{
-enableHighAccuracy:true,
-maximumAge:0,
-timeout:5000
-});
+watchId=navigator.geolocation.watchPosition(handlePosition);
 };
 
-// PAUSE (แก้ให้ใช้ได้จริง)
+/* ===== PAUSE ===== */
 pauseBtn.onclick=()=>{
 isPaused=!isPaused;
-pauseBtn.textContent=isPaused?"Resume":"Pause";
+isTracking=!isPaused;
+if(isPaused) stopTimer(); else startTimer();
 };
 
-// FINISH
-finishBtn.onclick=()=>{
-isTracking=false;
-clearInterval(timer);
+/* ===== FINISH ===== */
+finishBtn.onclick=async()=>{
+stopTimer();
 
-navigator.geolocation.clearWatch(watchId);
-
+const endTime=new Date();
 const km=(totalDistance/1000);
-const m=Math.floor(elapsed/60).toString().padStart(2,"0");
-const s=(elapsed%60).toString().padStart(2,"0");
+const kmDisplay=Number(km.toFixed(2));
 
-sumDist.textContent=km.toFixed(2);
-sumTime.textContent=`${m}:${s}`;
-sumCarbon.textContent=(km*EF_CAR).toFixed(3);
+const m=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
+const s=(elapsedSeconds%60).toString().padStart(2,"0");
+const timeText=`${m}:${s}`;
 
-// เวลา HH:MM
-const now=new Date();
-const d=String(now.getDate()).padStart(2,'0');
-const mo=String(now.getMonth()+1).padStart(2,'0');
-const y=now.getFullYear();
-const h=String(now.getHours()).padStart(2,'0');
-const mi=String(now.getMinutes()).padStart(2,'0');
+await fetch(WEBHOOK_URL,{
+method:"POST",
+headers:{ "Content-Type":"text/plain;charset=utf-8" },
+body:JSON.stringify({
+user_email:userEmail,
+user_name:userName,
+distance_km:kmDisplay,
+duration_text:timeText,
+co2_saved_kg:Number((kmDisplay*EF_CAR).toFixed(3)),
+started_at:startTime.toISOString(),
+ended_at:endTime.toISOString(),
+gps_path:JSON.stringify(pathCoords)
+})
+});
+
+sumDist.textContent=kmDisplay.toFixed(2);
+sumTime.textContent=timeText;
+sumCarbon.textContent=(kmDisplay*EF_CAR).toFixed(3);
+
+const d=String(endTime.getDate()).padStart(2,'0');
+const mo=String(endTime.getMonth()+1).padStart(2,'0');
+const y=endTime.getFullYear();
+const h=String(endTime.getHours()).padStart(2,'0');
+const mi=String(endTime.getMinutes()).padStart(2,'0');
 
 finishDateTime.textContent=`${d}/${mo}/${y} ${h}:${mi}`;
 
 summaryModal.style.display="flex";
+
+navigator.geolocation.clearWatch(watchId);
+resetSession();
 };
 
-// SAVE
+/* ===== SAVE ===== */
 function saveImage(){
 html2canvas(document.querySelector("#captureArea")).then(canvas=>{
 const link=document.createElement("a");
@@ -249,6 +344,19 @@ link.click();
 
 function closeSummary(){
 summaryModal.style.display="none";
+}
+
+/* ===== RESET ===== */
+function resetSession(){
+totalDistance=0;
+lastPoint=null;
+pathCoords=[];
+elapsedSeconds=0;
+isPaused=false;
+isTracking=false;
+polyline.setPath([]);
+time.textContent="00:00";
+updateUI();
 }
 </script>
 
