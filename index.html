@@ -9,10 +9,9 @@
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
 <style>
-html,body{margin:0;height:100%;font-family:-apple-system, BlinkMacSystemFont, sans-serif;background:#f4f7f6}
+html,body{margin:0;height:100%;font-family:-apple-system;background:#f4f7f6}
 #map{height:100%;width:100%}
 
-/* ===== CARD ===== */
 .controls{
 position:absolute;
 left:50%;
@@ -28,22 +27,9 @@ width:92%;
 max-width:340px;
 }
 
-/* ===== TEXT ===== */
-.stats{
-font-size:15px;
-line-height:1.6;
-}
+.stats{font-size:15px;line-height:1.6}
 
-.stats b{
-font-weight:700;
-}
-
-/* ===== BUTTONS ===== */
-.btn-row{
-display:flex;
-gap:12px;
-margin-top:14px;
-}
+.btn-row{display:flex;gap:12px;margin-top:14px}
 
 button{
 padding:14px;
@@ -55,21 +41,15 @@ display:flex;
 align-items:center;
 justify-content:center;
 flex:1;
+gap:6px;
 }
 
 .start{background:#4CAF50;color:white}
 .pause{background:#F4A62A;color:white}
-.finish{
-background:#E74C3C;
-color:white;
-width:100%;
-margin-top:12px;
-}
+.finish{background:#E74C3C;color:white;width:100%;margin-top:12px}
 
-/* ===== MODAL ===== */
 #summaryModal{
-position:fixed;
-inset:0;
+position:fixed;inset:0;
 background:rgba(0,0,0,.4);
 display:none;
 align-items:center;
@@ -86,36 +66,17 @@ max-width:340px;
 text-align:center;
 }
 
-/* ===== SUMMARY TEXT ===== */
-.main-number{
-font-size:44px;
-font-weight:700;
-}
+.main-number{font-size:44px;font-weight:700}
+.sub{color:#666;margin-top:6px}
+.green{color:#16a34a;margin-top:6px}
 
-.sub{
-color:#666;
-margin-top:6px;
-}
-
-.green{
-color:#16a34a;
-margin-top:6px;
-}
-
-/* ===== BUTTONS ===== */
 .summary-buttons{
 display:flex;
 gap:14px;
 margin-top:18px;
 }
 
-.summary-buttons button{
-flex:1;
-padding:14px;
-border-radius:999px;
-font-weight:600;
-}
-
+.summary-buttons button{flex:1}
 .save-btn{background:#4CAF50;color:white}
 .done-btn{background:#F4A62A;color:white}
 </style>
@@ -125,9 +86,7 @@ font-weight:600;
 
 <div id="map"></div>
 
-<!-- ===== CONTROL ===== -->
 <div class="controls">
-
 <div class="stats">
 ระยะทาง <b><span id="distance">0.00</span> km</b><br>
 ลด <b><span id="carbon">0.000</span> kgCO₂e</b><br>
@@ -140,14 +99,13 @@ font-weight:600;
 </div>
 
 <button id="finishBtn" class="finish">Finish</button>
-
 </div>
 
-<!-- ===== SUMMARY ===== -->
+<!-- SUMMARY -->
 <div id="summaryModal">
 <div class="summary-card" id="captureArea">
 
-<h3>Walk Complete 🎉</h3>
+<h3>Walk Complete</h3>
 
 <div class="main-number">
 <span id="sumDist">0.00</span> km
@@ -164,32 +122,37 @@ font-weight:600;
 <div id="finishDateTime" class="sub"></div>
 
 <div class="summary-buttons">
-<button onclick="saveImage()" class="save-btn">📷 Save</button>
+
+<button onclick="saveImage()" class="save-btn">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+<path d="M9 2L7 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3l-2-2H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/>
+</svg>
+Save
+</button>
+
 <button onclick="closeSummary()" class="done-btn">Done</button>
+
 </div>
 
 </div>
 </div>
 
 <script>
-
-/* ===== CONFIG (เหมือนเดิม) ===== */
 const WEBHOOK_URL="https://script.google.com/macros/s/AKfycbz04fVf9Kr5QiJpIuJNdPuec5G7mTOTmbPd0246nE1pGlGq5HNlRR_Hc35gDX_ncovG/exec";
 const EF_CAR=0.192;
 
-/* ===== USER (เหมือนเดิม) ===== */
 const params=new URLSearchParams(window.location.search);
 const userEmail=params.get("email")||"unknown";
 const userName=params.get("name")||"unknown";
 
-/* ===== STATE ===== */
-let map,polyline,userMarker;
+let map,polyline;
 let watchId=null;
+
 let totalDistance=0,lastPoint=null,pathCoords=[];
 let startTime=null,elapsedSeconds=0,timerInterval;
 let isTracking=false,isPaused=false,sessionActive=false;
 
-/* ===== MAP ===== */
+/* MAP */
 function initMap(){
 map=new google.maps.Map(document.getElementById("map"),{
 center:{lat:13.7563,lng:100.5018},
@@ -202,12 +165,10 @@ path:[],
 strokeColor:"#22c55e",
 strokeWeight:5
 });
-
-userMarker=new google.maps.Marker({map});
 }
 window.onload=initMap;
 
-/* ===== TIMER ===== */
+/* TIMER */
 function startTimer(){
 timerInterval=setInterval(()=>{
 if(!isTracking) return;
@@ -216,23 +177,19 @@ updateUI();
 },1000);
 }
 
-function stopTimer(){
-clearInterval(timerInterval);
-}
+function stopTimer(){clearInterval(timerInterval);}
 
-/* ===== DISTANCE ===== */
+/* DIST */
 function getDistance(p1,p2){
-const R=6371000;
-const toRad=x=>x*Math.PI/180;
-const dLat=toRad(p2.lat-p1.lat);
-const dLng=toRad(p2.lng-p1.lng);
+const R=6371000,toRad=x=>x*Math.PI/180;
+const dLat=toRad(p2.lat-p1.lat),dLng=toRad(p2.lng-p1.lng);
 const a=Math.sin(dLat/2)**2+
 Math.cos(toRad(p1.lat))*Math.cos(toRad(p2.lat))*
 Math.sin(dLng/2)**2;
 return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-/* ===== GPS ===== */
+/* GPS */
 function handlePosition(pos){
 if(!isTracking||isPaused) return;
 
@@ -250,13 +207,12 @@ lastPoint=current;
 pathCoords.push(current);
 
 polyline.setPath(pathCoords);
-userMarker.setPosition(current);
 map.panTo(current);
 
 updateUI();
 }
 
-/* ===== UI ===== */
+/* UI */
 function updateUI(){
 const km=totalDistance/1000;
 distance.textContent=km.toFixed(2);
@@ -267,33 +223,30 @@ const s=(elapsedSeconds%60).toString().padStart(2,"0");
 time.textContent=`${m}:${s}`;
 }
 
-/* ===== START ===== */
+/* START */
 startBtn.onclick=()=>{
 resetSession();
 sessionActive=true;
 isTracking=true;
 isPaused=false;
-
 startTime=new Date();
 startTimer();
-
 watchId=navigator.geolocation.watchPosition(handlePosition);
 };
 
-/* ===== PAUSE ===== */
+/* PAUSE */
 pauseBtn.onclick=()=>{
 isPaused=!isPaused;
 isTracking=!isPaused;
 if(isPaused) stopTimer(); else startTimer();
 };
 
-/* ===== FINISH ===== */
+/* FINISH */
 finishBtn.onclick=async()=>{
 stopTimer();
 
 const endTime=new Date();
-const km=(totalDistance/1000);
-const kmDisplay=Number(km.toFixed(2));
+const kmDisplay=Number((totalDistance/1000).toFixed(2));
 
 const m=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
 const s=(elapsedSeconds%60).toString().padStart(2,"0");
@@ -332,7 +285,7 @@ navigator.geolocation.clearWatch(watchId);
 resetSession();
 };
 
-/* ===== SAVE ===== */
+/* SAVE */
 function saveImage(){
 html2canvas(document.querySelector("#captureArea")).then(canvas=>{
 const link=document.createElement("a");
@@ -346,7 +299,6 @@ function closeSummary(){
 summaryModal.style.display="none";
 }
 
-/* ===== RESET ===== */
 function resetSession(){
 totalDistance=0;
 lastPoint=null;
