@@ -121,27 +121,31 @@ margin-top:18px;
 <div id="finishDateTime" class="sub"></div>
 
 <div class="summary-buttons">
-<button onclick="saveImage()" class="save-btn">Save</button>
+
+<!-- ✅ กล้องกลับมาแล้ว -->
+<button onclick="saveImage()" class="save-btn">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+<path d="M9 2L7 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3l-2-2H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/>
+</svg>
+Save
+</button>
+
 <button onclick="closeSummary()" class="done-btn">Done</button>
+
 </div>
 
 </div>
 </div>
 
 <script>
-const WEBHOOK_URL="https://script.google.com/macros/s/AKfycbz04fVf9Kr5QiJpIuJNdPuec5G7mTOTmbPd0246nE1pGlGq5HNlRR_Hc35gDX_ncovG/exec";
 const EF_CAR=0.192;
 
 let map,polyline,watchId=null;
-
 let totalDistance=0,lastPoint=null,pathCoords=[];
 let elapsedSeconds=0,timerInterval;
 let isTracking=false,isPaused=false;
-
-/* ✅ smoothing */
 let lastPositions=[];
 
-/* MAP */
 function initMap(){
 map=new google.maps.Map(document.getElementById("map"),{
 center:{lat:13.7563,lng:100.5018},
@@ -157,7 +161,6 @@ strokeWeight:5
 }
 window.onload=initMap;
 
-/* TIMER */
 function startTimer(){
 timerInterval=setInterval(()=>{
 if(!isTracking) return;
@@ -167,7 +170,6 @@ updateUI();
 }
 function stopTimer(){clearInterval(timerInterval);}
 
-/* DIST */
 function getDistance(p1,p2){
 const R=6371000,toRad=x=>x*Math.PI/180;
 const dLat=toRad(p2.lat-p1.lat),dLng=toRad(p2.lng-p1.lng);
@@ -177,56 +179,41 @@ Math.sin(dLng/2)**2;
 return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-/* ✅ smooth */
 function smoothPosition(p){
 lastPositions.push(p);
 if(lastPositions.length>3) lastPositions.shift();
 
-let avgLat=0,avgLng=0;
+let lat=0,lng=0;
 lastPositions.forEach(pos=>{
-avgLat+=pos.lat;
-avgLng+=pos.lng;
+lat+=pos.lat;
+lng+=pos.lng;
 });
-return {
-lat:avgLat/lastPositions.length,
-lng:avgLng/lastPositions.length
-};
+return {lat:lat/lastPositions.length,lng:lng/lastPositions.length};
 }
 
-/* ✅ GPS core */
 function handlePosition(pos){
 if(!isTracking||isPaused) return;
 
 const {latitude,longitude,accuracy}=pos.coords;
-
-/* ❌ ตัด GPS แย่ */
 if(accuracy>30) return;
 
 let current=smoothPosition({lat:latitude,lng:longitude});
 
 if(lastPoint){
 const dist=getDistance(lastPoint,current);
-
-/* ❌ กัน jitter ตอนยืน */
 if(dist<1) return;
-
-/* ❌ กันกระโดด */
 if(dist>20) return;
-
 totalDistance+=dist;
 }
 
 lastPoint=current;
-
 pathCoords.push(current);
 polyline.setPath(pathCoords);
-
 map.panTo(current);
 
 updateUI();
 }
 
-/* UI */
 function updateUI(){
 const km=totalDistance/1000;
 distance.textContent=km.toFixed(2);
@@ -237,7 +224,6 @@ const s=(elapsedSeconds%60).toString().padStart(2,"0");
 time.textContent=`${m}:${s}`;
 }
 
-/* START */
 startBtn.onclick=()=>{
 resetSession();
 isTracking=true;
@@ -247,22 +233,16 @@ startTimer();
 watchId=navigator.geolocation.watchPosition(
 handlePosition,
 (err)=>console.log(err),
-{
-enableHighAccuracy:true,
-maximumAge:0,
-timeout:10000
-}
+{enableHighAccuracy:true,maximumAge:0,timeout:10000}
 );
 };
 
-/* PAUSE */
 pauseBtn.onclick=()=>{
 isPaused=!isPaused;
 isTracking=!isPaused;
 if(isPaused) stopTimer(); else startTimer();
 };
 
-/* FINISH */
 finishBtn.onclick=()=>{
 stopTimer();
 
@@ -279,7 +259,6 @@ sumCarbon.textContent=((totalDistance/1000)*EF_CAR).toFixed(3);
 navigator.geolocation.clearWatch(watchId);
 };
 
-/* SAVE */
 function saveImage(){
 html2canvas(document.querySelector("#captureArea")).then(canvas=>{
 const link=document.createElement("a");
@@ -293,7 +272,6 @@ function closeSummary(){
 summaryModal.style.display="none";
 }
 
-/* RESET */
 function resetSession(){
 totalDistance=0;
 lastPoint=null;
