@@ -12,6 +12,7 @@
 html,body{margin:0;height:100%;font-family:system-ui}
 #map{height:100%;width:100%}
 
+/* CONTROL */
 .controls{
 position:absolute;
 left:50%;
@@ -43,7 +44,7 @@ align-items:center;
 .pause{background:#f59e0b;color:white}
 .finish{background:#ef4444;color:white;width:100%;margin-top:10px}
 
-/* modal */
+/* MODAL */
 #summaryModal{
 position:fixed;inset:0;
 background:rgba(0,0,0,.4);
@@ -99,9 +100,7 @@ text-align:center;
 <div id="finishDateTime"></div>
 
 <div class="summary-buttons">
-<button onclick="saveImage()" class="save-btn">
-📷 Save
-</button>
+<button onclick="saveImage()" class="save-btn">📷 Save</button>
 <button onclick="closeSummary()" class="done-btn">Done</button>
 </div>
 
@@ -117,18 +116,23 @@ let elapsed=0,timer;
 let isTracking=false;
 let isPaused=false;
 
-// MAP
+/* MAP */
 function initMap(){
 map=new google.maps.Map(document.getElementById("map"),{
 center:{lat:13.7563,lng:100.5018},
 zoom:16
 });
-polyline=new google.maps.Polyline({map,strokeColor:"#22c55e",strokeWeight:5});
+polyline=new google.maps.Polyline({
+map,
+path:[],
+strokeColor:"#22c55e",
+strokeWeight:5
+});
 marker=new google.maps.Marker({map});
 }
 window.onload=initMap;
 
-// TIMER
+/* TIMER */
 function startTimer(){
 timer=setInterval(()=>{
 if(!isTracking||isPaused) return;
@@ -137,7 +141,7 @@ updateUI();
 },1000);
 }
 
-// DISTANCE
+/* DISTANCE */
 function getDistance(a,b){
 const R=6371000;
 const toRad=x=>x*Math.PI/180;
@@ -149,22 +153,29 @@ Math.sin(dLng/2)**2;
 return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
-// GPS
+/* GPS (แก้ให้ขยับจริง) */
 function handlePosition(pos){
 if(!isTracking||isPaused) return;
 
 const {latitude,longitude,accuracy}=pos.coords;
-if(accuracy>30) return;
+
+// 🔥 ผ่อนให้รับค่าได้
+if(accuracy>100) return;
 
 const current={lat:latitude,lng:longitude};
 
-// ✅ ทำให้ map ตามตัวเรา
-map.setCenter(current);
+// 🔥 บังคับ map ตามเรา
+map.panTo(current);
+map.setZoom(18);
 marker.setPosition(current);
 
 if(lastPoint){
 const d=getDistance(lastPoint,current);
-if(d>2 && d<80) totalDistance+=d;
+
+// 🔥 กัน GPS เด้ง
+if(d>1 && d<100){
+totalDistance+=d;
+}
 }
 
 lastPoint=current;
@@ -173,7 +184,7 @@ polyline.getPath().push(current);
 updateUI();
 }
 
-// UI
+/* UI */
 function updateUI(){
 const km=totalDistance/1000;
 distance.textContent=km.toFixed(2);
@@ -184,7 +195,7 @@ const s=(elapsed%60).toString().padStart(2,"0");
 time.textContent=`${m}:${s}`;
 }
 
-// START
+/* START */
 startBtn.onclick=()=>{
 totalDistance=0;
 elapsed=0;
@@ -196,20 +207,24 @@ isPaused=false;
 
 startTimer();
 
-watchId=navigator.geolocation.watchPosition(handlePosition,{
+watchId=navigator.geolocation.watchPosition(
+handlePosition,
+(err)=>console.log(err),
+{
 enableHighAccuracy:true,
 maximumAge:0,
-timeout:5000
-});
+timeout:10000
+}
+);
 };
 
-// PAUSE (แก้ให้ใช้ได้จริง)
+/* PAUSE */
 pauseBtn.onclick=()=>{
 isPaused=!isPaused;
 pauseBtn.textContent=isPaused?"Resume":"Pause";
 };
 
-// FINISH
+/* FINISH */
 finishBtn.onclick=()=>{
 isTracking=false;
 clearInterval(timer);
@@ -224,7 +239,7 @@ sumDist.textContent=km.toFixed(2);
 sumTime.textContent=`${m}:${s}`;
 sumCarbon.textContent=(km*EF_CAR).toFixed(3);
 
-// เวลา HH:MM
+// HH:MM
 const now=new Date();
 const d=String(now.getDate()).padStart(2,'0');
 const mo=String(now.getMonth()+1).padStart(2,'0');
@@ -237,7 +252,7 @@ finishDateTime.textContent=`${d}/${mo}/${y} ${h}:${mi}`;
 summaryModal.style.display="flex";
 };
 
-// SAVE
+/* SAVE */
 function saveImage(){
 html2canvas(document.querySelector("#captureArea")).then(canvas=>{
 const link=document.createElement("a");
