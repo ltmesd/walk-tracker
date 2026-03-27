@@ -67,7 +67,18 @@ text-align:center;
 }
 
 .main-number{font-size:38px;font-weight:700}
-.sub{color:#666;margin-top:6px}
+
+/* ✅ ตัวบาง */
+.sub{color:#666;margin-top:6px;font-weight:400}
+
+/* ✅ วันเวลา */
+#finishDateTime{
+font-weight:400;
+font-size:14px;
+color:#888;
+margin-top:10px;
+}
+
 .green{color:#16a34a;margin-top:6px}
 
 .summary-buttons{
@@ -118,11 +129,11 @@ margin-top:18px;
 ลด <b id="sumCarbon">0.000</b> kgCO₂e
 </div>
 
-<div id="finishDateTime" class="sub"></div>
+<!-- ✅ วันเวลาอยู่ล่างสุด -->
+<div id="finishDateTime">00/00/0000 00:00</div>
 
 <div class="summary-buttons">
 
-<!-- ✅ กล้องกลับมาแล้ว -->
 <button onclick="saveImage()" class="save-btn">
 <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
 <path d="M9 2L7 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3l-2-2H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/>
@@ -246,6 +257,16 @@ if(isPaused) stopTimer(); else startTimer();
 finishBtn.onclick=()=>{
 stopTimer();
 
+const endTime=new Date();
+const d=String(endTime.getDate()).padStart(2,'0');
+const mo=String(endTime.getMonth()+1).padStart(2,'0');
+const y=endTime.getFullYear();
+const h=String(endTime.getHours()).padStart(2,'0');
+const mi=String(endTime.getMinutes()).padStart(2,'0');
+
+/* ✅ ไม่มีวินาที */
+finishDateTime.textContent=`${d}/${mo}/${y} ${h}:${mi}`;
+
 summaryModal.style.display="flex";
 
 sumDist.textContent=(totalDistance/1000).toFixed(2);
@@ -268,8 +289,10 @@ link.click();
 });
 }
 
+/* ✅ Done = รีเซ็ต */
 function closeSummary(){
 summaryModal.style.display="none";
+resetSession();
 }
 
 function resetSession(){
@@ -280,6 +303,7 @@ elapsedSeconds=0;
 lastPositions=[];
 polyline.setPath([]);
 time.textContent="00:00";
+finishDateTime.textContent="00/00/0000 00:00";
 updateUI();
 }
 </script>
