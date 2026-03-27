@@ -6,8 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04YQw_sw"></script>
-
-<!-- ✅ เพิ่มตัวนี้ -->
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
 <style>
@@ -72,7 +70,7 @@ text-align:center;
 
 <div class="stats">
 ระยะทาง: <b><span id="distance">0.00</span> km</b><br>
-ลดคาร์บอน: <b><span id="carbon">0.000</span> kgCO₂e</b><br>
+ลด: <b><span id="carbon">0.000</span> kgCO₂e</b><br>
 <span class="time">เวลา: <span id="time">00:00</span></span>
 </div>
 
@@ -98,11 +96,15 @@ text-align:center;
 เวลา <b id="sumTime">00:00</b>
 </div>
 
-<div style="color:#16a34a;margin-bottom:20px">
-ลด CO₂ <b id="sumCarbon">0.000</b> kg
+<!-- ✅ เพิ่มวันเวลา -->
+<div style="color:#666;margin-bottom:8px">
+เสร็จเมื่อ <b id="finishDateTime">-</b>
 </div>
 
-<!-- ✅ ปุ่มใหม่ -->
+<div style="color:#16a34a;margin-bottom:20px">
+ลด <b id="sumCarbon">0.000</b> kgCO₂e
+</div>
+
 <button onclick="saveImage()" class="start">📸 Save</button>
 <button onclick="closeSummary()" class="pause">Done</button>
 
@@ -111,18 +113,8 @@ text-align:center;
 
 <script>
 
-// CONFIG
-const WEBHOOK_URL="https://script.google.com/macros/s/AKfycbz04fVf9Kr5QiJpIuJNdPuec5G7mTOTmbPd0246nE1pGlGq5HNlRR_Hc35gDX_ncovG/exec";
 const EF_CAR=0.192;
 
-
-// USER
-const params=new URLSearchParams(window.location.search);
-const userEmail=params.get("email")||"unknown";
-const userName=params.get("name")||"unknown";
-
-
-// STATE
 let map,polyline,userMarker;
 let watchId=null;
 
@@ -130,7 +122,6 @@ let totalDistance=0;
 let lastPoint=null;
 let pathCoords=[];
 
-let startTime=null;
 let elapsedSeconds=0;
 let timerInterval=null;
 
@@ -141,7 +132,6 @@ let sessionActive=false;
 
 // MAP
 function initMap(){
-
 map=new google.maps.Map(document.getElementById("map"),{
 center:{lat:13.7563,lng:100.5018},
 zoom:16,
@@ -207,7 +197,6 @@ return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 
 // GPS
 function handlePosition(pos){
-
 if(!isTracking||isPaused) return;
 
 const {latitude,longitude,accuracy}=pos.coords;
@@ -262,9 +251,7 @@ sessionActive=true;
 isTracking=true;
 isPaused=false;
 
-startTime=new Date();
 startTimer();
-
 watchId=navigator.geolocation.watchPosition(handlePosition);
 
 updateButtons();
@@ -286,8 +273,7 @@ updateButtons();
 
 
 // FINISH
-finishBtn.onclick=async()=>{
-
+finishBtn.onclick=()=>{
 if(!sessionActive) return;
 
 stopTimer();
@@ -300,6 +286,19 @@ document.getElementById("sumDist").textContent=km;
 document.getElementById("sumTime").textContent=`${m}:${s}`;
 document.getElementById("sumCarbon").textContent=(km*EF_CAR).toFixed(3);
 
+// ✅ เพิ่มวันเวลา format 01/02/2026 14:53
+const finishTime = new Date();
+
+const day = String(finishTime.getDate()).padStart(2, '0');
+const month = String(finishTime.getMonth() + 1).padStart(2, '0');
+const year = finishTime.getFullYear();
+
+const hour = String(finishTime.getHours()).padStart(2, '0');
+const minute = String(finishTime.getMinutes()).padStart(2, '0');
+
+const formattedDateTime = `${day}/${month}/${year} ${hour}:${minute}`;
+document.getElementById("finishDateTime").textContent = formattedDateTime;
+
 document.getElementById("summaryModal").style.display="flex";
 
 navigator.geolocation.clearWatch(watchId);
@@ -310,7 +309,7 @@ updateButtons();
 };
 
 
-// SAVE IMAGE 🔥
+// SAVE IMAGE
 function saveImage(){
 const element=document.querySelector(".summary-card");
 
