@@ -5,7 +5,9 @@
 <title>SUSTEP</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAdXvTwv1cry2Q2yNZkCgaxpZy04fVf9Kr5QiJpIuJNdPuec5G7mTOTmbPd0246nE1pGlGq5HNlRR_Hc35gDX_ncovG"></script>
+<!-- ✅ API KEY ใหม่ -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD7xnpAUWUrhzQwSQZlfasfGY7ys3WlGOc"></script>
+
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
 <style>
@@ -58,7 +60,6 @@ max-width:320px;
 text-align:center;
 }
 
-/* Apple style */
 .main-metric{font-size:42px;font-weight:700;margin-bottom:6px}
 .unit{font-size:16px;color:#666}
 .time2{font-size:15px;margin-bottom:6px}
@@ -127,10 +128,24 @@ let isTracking=false,isPaused=false,sessionActive=false,startTime;
 
 // MAP
 function initMap(){
-map=new google.maps.Map(document.getElementById("map"),{center:{lat:13.7563,lng:100.5018},zoom:16});
-polyline=new google.maps.Polyline({map,path:[],strokeColor:"#22c55e",strokeWeight:5});
-userMarker=new google.maps.Marker({map,position:{lat:13.7563,lng:100.5018}});
+map=new google.maps.Map(document.getElementById("map"),{
+center:{lat:13.7563,lng:100.5018},
+zoom:16
+});
+
+polyline=new google.maps.Polyline({
+map,
+path:[],
+strokeColor:"#22c55e",
+strokeWeight:5
+});
+
+userMarker=new google.maps.Marker({
+map,
+position:{lat:13.7563,lng:100.5018}
+});
 }
+
 window.onload=initMap;
 
 // TIMER
@@ -141,7 +156,10 @@ elapsedSeconds++;
 updateUI();
 },1000);
 }
-function stopTimer(){clearInterval(timerInterval);}
+
+function stopTimer(){
+clearInterval(timerInterval);
+}
 
 // DISTANCE
 function getDistance(p1,p2){
@@ -156,6 +174,7 @@ return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 // GPS
 function handlePosition(pos){
 if(!isTracking||isPaused) return;
+
 const {latitude,longitude,accuracy}=pos.coords;
 if(accuracy>30) return;
 
@@ -168,41 +187,57 @@ if(dist<60) totalDistance+=dist;
 
 lastPoint=current;
 pathCoords.push(current);
+
 polyline.setPath(pathCoords);
 userMarker.setPosition(current);
 map.panTo(current);
+
 updateUI();
 }
 
 // UI
 function updateUI(){
 const km=totalDistance/1000;
-distance.textContent=km.toFixed(2);
-carbon.textContent=(km*EF_CAR).toFixed(3);
+
+document.getElementById("distance").textContent=km.toFixed(2);
+document.getElementById("carbon").textContent=(km*EF_CAR).toFixed(3);
 
 const m=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
 const s=(elapsedSeconds%60).toString().padStart(2,"0");
-time.textContent=`${m}:${s}`;
+
+document.getElementById("time").textContent=`${m}:${s}`;
 }
 
 // START
-startBtn.onclick=()=>{
+document.getElementById("startBtn").onclick=()=>{
 resetSession();
-sessionActive=true;isTracking=true;isPaused=false;
+
+sessionActive=true;
+isTracking=true;
+isPaused=false;
+
 startTime=new Date();
+
 startTimer();
-watchId=navigator.geolocation.watchPosition(handlePosition);
+
+watchId=navigator.geolocation.watchPosition(
+handlePosition,
+err=>console.error(err),
+{enableHighAccuracy:true}
+);
 };
 
 // PAUSE
-pauseBtn.onclick=()=>{
+document.getElementById("pauseBtn").onclick=()=>{
 isPaused=!isPaused;
 isTracking=!isPaused;
-if(isPaused) stopTimer(); else startTimer();
+
+if(isPaused) stopTimer();
+else startTimer();
 };
 
 // FINISH
-finishBtn.onclick=async()=>{
+document.getElementById("finishBtn").onclick=async()=>{
 stopTimer();
 
 const endTime=new Date();
@@ -213,7 +248,7 @@ const m=Math.floor(elapsedSeconds/60).toString().padStart(2,"0");
 const s=(elapsedSeconds%60).toString().padStart(2,"0");
 const timeText=`${m}:${s}`;
 
-// ยิงชีต (ของเดิมคุณ)
+// ยิง Google Sheets
 await fetch(WEBHOOK_URL,{
 method:"POST",
 headers:{ "Content-Type":"text/plain;charset=utf-8" },
@@ -230,9 +265,9 @@ gps_path:JSON.stringify(pathCoords)
 });
 
 // UI
-sumDist.textContent=kmDisplay.toFixed(2);
-sumTime.textContent=timeText;
-sumCarbon.textContent=(kmDisplay*EF_CAR).toFixed(3);
+document.getElementById("sumDist").textContent=kmDisplay.toFixed(2);
+document.getElementById("sumTime").textContent=timeText;
+document.getElementById("sumCarbon").textContent=(kmDisplay*EF_CAR).toFixed(3);
 
 // วันที่
 const d=String(endTime.getDate()).padStart(2,'0');
@@ -241,15 +276,16 @@ const y=endTime.getFullYear();
 const h=String(endTime.getHours()).padStart(2,'0');
 const mi=String(endTime.getMinutes()).padStart(2,'0');
 
-finishDateTime.textContent=`${d}/${mo}/${y} ${h}:${mi}`;
+document.getElementById("finishDateTime").textContent=`${d}/${mo}/${y} ${h}:${mi}`;
 
-summaryModal.style.display="flex";
+document.getElementById("summaryModal").style.display="flex";
 
 navigator.geolocation.clearWatch(watchId);
+
 resetSession();
 };
 
-// SAVE
+// SAVE IMAGE
 function saveImage(){
 html2canvas(document.querySelector(".summary-card")).then(canvas=>{
 const link=document.createElement("a");
@@ -260,14 +296,21 @@ link.click();
 }
 
 function closeSummary(){
-summaryModal.style.display="none";
+document.getElementById("summaryModal").style.display="none";
 }
 
+// RESET
 function resetSession(){
-totalDistance=0;lastPoint=null;pathCoords=[];
-elapsedSeconds=0;isPaused=false;isTracking=false;
+totalDistance=0;
+lastPoint=null;
+pathCoords=[];
+elapsedSeconds=0;
+isPaused=false;
+isTracking=false;
+
 polyline.setPath([]);
-time.textContent="00:00";
+
+document.getElementById("time").textContent="00:00";
 updateUI();
 }
 
